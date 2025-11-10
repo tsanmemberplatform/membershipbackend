@@ -22,9 +22,7 @@ const generateOTP = () => {
     specialChars: false 
   });
 };
-
-  const generateMembershipId = async (stateScoutCouncil, userModel) => {
-  const stateAbbr = stateScoutCouncil.substring(0, 3).toUpperCase();
+  const generateMembershipId = async (userModel) => {
   let membershipId, exists;
   let digitLength = 7; 
 
@@ -34,13 +32,13 @@ const generateOTP = () => {
     const max = Math.pow(10, digitLength) - 1;
     const uniqueNumber = Math.floor(min + Math.random() * (max - min));
 
-    membershipId = `TSAN-${stateAbbr}-${uniqueNumber}`;
+    membershipId = `TSAN-${uniqueNumber}`;
     exists = await userModel.findOne({ membershipId });
 
     // ✅ If all 7-digit numbers are exhausted, switch to 8 digits
     if (exists && digitLength === 7) {
       const totalUsers = await userModel.countDocuments({
-        membershipId: { $regex: `^TSAN-${stateAbbr}-` }
+        membershipId: { $regex: `^TSAN-` }
       });
 
       if (totalUsers >= 9_000_000) {
@@ -161,7 +159,7 @@ exports.verifyOtp = async (req, res) => {
       
       
       if (!user.membershipId) {
-        user.membershipId = await generateMembershipId(user.stateScoutCouncil, userModel);
+        user.membershipId = await generateMembershipId(userModel);
       }
       
       
