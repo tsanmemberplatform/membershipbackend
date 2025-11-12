@@ -222,8 +222,8 @@ exports.updateMemberStatus = async (req, res) => {
       return res.status(404).json({ status: false, message: "User not found" });
 
     await auditTrailModel.create({
-      userId: user._id,
-      field: "status",
+      userId: req.user.fullName,
+      field: status,
       oldValue: user.status,
       newValue: status,
       changedBy: req.user._id,
