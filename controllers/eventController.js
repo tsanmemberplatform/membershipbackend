@@ -150,8 +150,8 @@ exports.getEvents = async (req, res) => {
       .limit(limit);
       
     if (!events.length) {
-      return res.status(404).json({
-        status: false,
+      return res.status(200).json({
+        status: true,
         message: "No events found matching your query",
       });
     }
@@ -174,7 +174,7 @@ exports.getEvents = async (req, res) => {
 exports.getEvent = async (req, res) => {
   try {
     const event = await eventModel.findById(req.params.id).populate("createdBy", "fullName email");
-    if (!event) return res.status(404).json({ status: false, message: "Event not found" });
+    if (!event) return res.status(200).json({ status: true, message: "Event not found" });
 
     if (!event.approved && !ADMIN_ROLES.includes(req.user.role) &&
         event.createdBy._id.toString() !== req.user._id.toString())
@@ -189,20 +189,6 @@ exports.getEvent = async (req, res) => {
     res.json({ status: true, event });
   } catch (err) { handleError(res, err); }
 };
-
-
-// exports.updateEvent = async (req, res) => {
-//   try {
-//     let event = await eventModel.findById(req.params.id);
-//     if (!event) return res.status(404).json({ status: false, message: "Event not found" });
-//     if (event.createdBy.toString() !== req.user._id.toString() && !ADMIN_ROLES.includes(req.user.role))
-//       return res.status(403).json({ status: false, message: "Not authorized" });
-
-//     event = await eventModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    
-//     res.json({ status: true, message: "Event updated", event });
-//   } catch (err) { handleError(res, err); }
-// };
 
 
 exports.updateEvent = async (req, res) => {
