@@ -404,7 +404,7 @@ exports.getMyEvents = async (req, res) => {
     ]);
 
     if (!events || events.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         status: true,
         message: "You haven't created any events yet",
       });
