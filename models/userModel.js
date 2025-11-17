@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
   const userSchema = new mongoose.Schema({
     membershipId: {
       type: String,
+      default: null
     },
     fullName: {
       type: String,
