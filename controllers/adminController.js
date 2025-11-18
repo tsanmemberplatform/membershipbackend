@@ -81,7 +81,7 @@ exports.promoteRole = async (req, res) => {
       field: "role",
       oldValue: displayOldRole,
       newValue: displayNewRole,
-      changedBy: req.user._id,
+      changedBy: req.user.fullName,
       remarks: `${req.user.fullName} (${req.user.role}) promoted ${user.fullName} from ${displayOldRole} to ${displayNewRole}`,
       timestamp: new Date(),
     });
@@ -176,7 +176,7 @@ exports.demoteRole = async (req, res) => {
       field: "role",
       oldValue: displayOldRole,
       newValue: displayNewRole,
-      changedBy: req.user._id,
+      changedBy: req.user.fullName,
       remarks: `${req.user.fullName} (${req.user.role}) demoted ${user.fullName} from ${displayOldRole} to ${displayNewRole}`,
       timestamp: new Date(),
     });
@@ -222,11 +222,12 @@ exports.updateMemberStatus = async (req, res) => {
       return res.status(404).json({ status: false, message: "User not found" });
 
     await auditTrailModel.create({
-      userId: req.user.fullName,
-      field: status,
+      userId: user._id,
+      field: `Status`,
       oldValue: user.status,
       newValue: status,
-      changedBy: req.user._id,
+      changedBy: req.user.fullName,
+      remarks:`${req.user.fullName} (${req.user.role}) changed ${user.fullName} status to ${user.status}`,
       timestamp: new Date(),
     });
 
