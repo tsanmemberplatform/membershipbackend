@@ -13,7 +13,7 @@ const trainingSchema = new mongoose.Schema({
       "Second Class",
       "First Class",
       "Basic Training Course",
-      "Wood Badge",
+      "Woodbadge",
       "Assistant Leader Trainer",
       "Leader Trainer",
       "Other",
