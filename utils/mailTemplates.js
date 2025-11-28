@@ -39,7 +39,9 @@ const resetPasswordMail = (otp, fullName) => {
 
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-        © ${new Date().getFullYear()} TSAN. All rights reserved.
+      <p style="margin:0; font-weight:bold;">Best regards</p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
     </div>
   </div>
@@ -80,7 +82,9 @@ const welcomeMail = (otp, fullName) => {
 
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-        © ${new Date().getFullYear()} TSAN. All rights reserved.
+      <p style="margin:0; font-weight:bold;">Best regards</p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
      
         </div>
       </div>
@@ -101,6 +105,14 @@ const emailVerificationMail = (link, fullName) => {
       </a>
       <p>If you did not create this account, please ignore this message.</p>
       <p>Regards,<br/>TSAN Team</p>
+
+      
+      <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <p style="margin:0; font-weight:bold;">Best regards</p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
     </div>
   `;
 };
@@ -141,7 +153,9 @@ const twoFAMail = (otp, fullName) => {
 
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-        © ${new Date().getFullYear()} TSAN. All rights reserved.
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      
      
         </div>
       </div>
@@ -213,7 +227,9 @@ const inviteUserMail = (fullName, role, council, inviteLink) => {
         </div>
 
         <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#fff;">
-          © ${new Date().getFullYear()} TSAN. All rights reserved.
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
         </div>
       </div>
     </div>
