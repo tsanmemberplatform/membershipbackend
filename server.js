@@ -67,6 +67,7 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
 app.use("/api/users", userRoutes);
+app.use("/api/sns", snsRoute);
 /**
  * ✅ GLOBAL SUSPENSION CHECK
  * This ensures suspended users cannot perform write operations (POST, PUT, PATCH, DELETE)
@@ -84,7 +85,6 @@ app.use("/api/trainings", trainingRoute);
 app.use("/api/events", eventRoute);
 app.use("/api/logs", logRoute);
 app.use("/api/awards", awardRoute);
-app.use("/api/sns", snsRoute)
 app.use((err, req, res, next) => {
    if (err.type === "entity.too.large") {
     return res.status(413).json({
