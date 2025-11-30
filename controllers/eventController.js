@@ -130,9 +130,8 @@ exports.rejectEvent = async (req, res) => {
 
 exports.getEvents = async (req, res) => {
   try {
-     const ADMIN_ROLES = ["superAdmin", "nsAdmin", "ssAdmin"];
-
-    const query = ADMIN_ROLES.includes(req.user.role) ? {} : { approved: true };
+    
+    const query = { approved: true };
      if (req.query.title){
       query.title = { $regex: req.query.title, $options: "i"};
      }
