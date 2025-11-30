@@ -40,7 +40,7 @@ const resetPasswordMail = (otp, fullName) => {
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
       <p style="margin:0; font-weight:bold;">Best regards</p>
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
     </div>
@@ -57,7 +57,7 @@ const welcomeMail = (otp, fullName) => {
         <div style="padding:30px; color:#333;">
           <h2 style="margin-top:0; color:#000000;">Hello ${fullName.split(" ")[0]}, </h2>
           <p style="font-size:15px; line-height:1.6;">
-            Thank you for registering. Here is your code to activate your account:
+            Thank you for registering. we're excited to have you. Here is your code to activate your account:
           </p>
 
           <!-- OTP -->
@@ -70,8 +70,7 @@ const welcomeMail = (otp, fullName) => {
           </div>
 
           <p style="font-size:14px; color:#555; line-height:1.6;">
-            If you did not make this request, don’t worry.  
-            Your account is still safe and you can ignore this email.
+            If you did not make this request, you can disregard this email or contact your administrator.  
           </p>
           
         <p style="margin-top:25px; font-size:14px; color:#444;">
@@ -83,7 +82,7 @@ const welcomeMail = (otp, fullName) => {
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
       <p style="margin:0; font-weight:bold;">Best regards</p>
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
      
         </div>
@@ -110,7 +109,7 @@ const emailVerificationMail = (link, fullName) => {
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
       <p style="margin:0; font-weight:bold;">Best regards</p>
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
     </div>
@@ -153,7 +152,7 @@ const twoFAMail = (otp, fullName) => {
 
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       
      
@@ -227,7 +226,7 @@ const inviteUserMail = (fullName, role, council, inviteLink) => {
         </div>
 
         <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#fff;">
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:webscout@email.com" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
         </div>

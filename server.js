@@ -11,9 +11,11 @@ const trainingRoute = require('./routes/trainingRoute');
 const eventRoute = require('./routes/eventRoute');
 const logRoute = require('./routes/logRoute');
 const awardRoute = require('./routes/awardRoute');
+const snsRoute = require('./routes/snsRoute');
 const swaggerUi = require("swagger-ui-express");
 const swaggerJSDoc = require("swagger-jsdoc");
 const { checkSuspension, auth } = require('./middleware/authMiddleware');
+
 
 const PORT = process.env.PORT;
 
@@ -82,6 +84,7 @@ app.use("/api/trainings", trainingRoute);
 app.use("/api/events", eventRoute);
 app.use("/api/logs", logRoute);
 app.use("/api/awards", awardRoute);
+app.use("/api/sns", snsRoute)
 app.use((err, req, res, next) => {
    if (err.type === "entity.too.large") {
     return res.status(413).json({
