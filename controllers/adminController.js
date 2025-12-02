@@ -284,8 +284,13 @@ exports.getAllUsers = async (req, res) => {
     if (req.user.role === "ssAdmin") {
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
     }
-    if (req.query.stateScoutCouncil)
-      filter.stateScoutCouncil = req.query.stateScoutCouncil;
+     if (
+      req.query.stateScoutCouncil &&
+      req.query.stateScoutCouncil.trim() !== "" &&
+      req.user.role !== "ssAdmin"
+    ) {
+      filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+    }
     if (req.query.status) filter.status = req.query.status;
     if (req.query.section) filter.section = req.query.section;
     if (req.query.fullName) {
