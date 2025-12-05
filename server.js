@@ -11,7 +11,6 @@ const trainingRoute = require('./routes/trainingRoute');
 const eventRoute = require('./routes/eventRoute');
 const logRoute = require('./routes/logRoute');
 const awardRoute = require('./routes/awardRoute');
-const snsRoute = require('./routes/snsRoute');
 const swaggerUi = require("swagger-ui-express");
 const swaggerJSDoc = require("swagger-jsdoc");
 const { checkSuspension, auth } = require('./middleware/authMiddleware');
@@ -67,7 +66,6 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
 app.use("/api/users", userRoutes);
-app.use("/api/sns", snsRoute);
 /**
  * ✅ GLOBAL SUSPENSION CHECK
  * This ensures suspended users cannot perform write operations (POST, PUT, PATCH, DELETE)

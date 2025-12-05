@@ -270,7 +270,6 @@ exports.getMembersTrainingsByState = async (req, res) => {
       .json({ status: false, message: "Server error", error: error.message });
   }
 };
-
 exports.getAllUsers = async (req, res) => {
   try {
     // Pagination and sorting
@@ -284,7 +283,7 @@ exports.getAllUsers = async (req, res) => {
     if (req.user.role === "ssAdmin") {
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
     }
-     if (
+    if (
       req.query.stateScoutCouncil &&
       req.query.stateScoutCouncil.trim() !== "" &&
       req.user.role !== "ssAdmin"
@@ -428,19 +427,30 @@ exports.getReportStatistics = async (req, res) => {
 
     const filter = {};
 
-    // 🧩 Role-based access control
-    if (role === "ssAdmin") {
-      // ssAdmin: limited to their stateScoutCouncil
-      filter.stateScoutCouncil = userCouncil;
-    } else if (["superAdmin", "nsAdmin"].includes(role)) {
-      // superAdmin/nsAdmin: can view all or filter by specific state
-      if (stateScoutCouncil && stateScoutCouncil !== "All") {
-        filter.stateScoutCouncil = stateScoutCouncil;
-      }
-    } else {
-      // regular users only see their own council
-      filter.stateScoutCouncil = userCouncil;
-    }
+if (role === "ssAdmin") {
+  // ssAdmin: locked to their council
+  filter.stateScoutCouncil = userCouncil;
+}
+
+if (
+  req.query.stateScoutCouncil &&
+  req.query.stateScoutCouncil.trim() !== "" &&
+  role !== "ssAdmin"
+) {
+  // superAdmin, nsAdmin, or leader/member (if allowed)
+  filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+}
+
+if (!filter.stateScoutCouncil) {
+ 
+  if (["superAdmin", "nsAdmin"].includes(role)) {
+   
+  } else {
+    // Regular leaders/members default to own council
+    filter.stateScoutCouncil = userCouncil;
+  }
+}
+
 
     // 🗓 Date range filter
     const now = new Date();
