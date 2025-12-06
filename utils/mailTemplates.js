@@ -13,7 +13,7 @@ const resetPasswordMail = (otp, fullName) => {
         <h2 style="margin-top:0; color:#000;">Hello ${fullName.split(" ")[0]},</h2>
         <p style="font-size:15px; line-height:1.6;">
           You have requested for a <strong>change of password</strong>.  
-          Please use the 6-digit code below to reset your password
+          Please use the 6-digit otp code below to reset your password
         </p>
 
         <!-- OTP Box -->
