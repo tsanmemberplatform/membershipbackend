@@ -21,7 +21,7 @@ const PORT = process.env.PORT;
 const ENV = process.env.NODE_ENV || "development";
 const BASE_URL =
   ENV === "production"
-    ? "https://tsan.onrender.com/api"
+    ? "https://membershipbackend.onrender.com/api"
     : `http://localhost:${PORT}/api`;
 
 
@@ -33,7 +33,7 @@ const swaggerOptions = {
       version: "1.0.0",
       description: "API documentation for TSAN Database Management",
     },
-    servers: [{ url: "https://tsan.onrender.com/api",
+    servers: [{ url: "https://membershipbackend.onrender.com",
         description: 'production Server'
      },
         {url: `http://localhost:${PORT}/api`, 
