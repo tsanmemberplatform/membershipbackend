@@ -33,7 +33,7 @@ const swaggerOptions = {
       version: "1.0.0",
       description: "API documentation for TSAN Database Management",
     },
-    servers: [{ url: "https://membershipbackend.onrender.com",
+    servers: [{ url: "https://membershipbackend.onrender.com/api",
         description: 'production Server'
      },
         {url: `http://localhost:${PORT}/api`, 
