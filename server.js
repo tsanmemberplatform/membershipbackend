@@ -107,5 +107,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`API Docs available at Production- https://tsan.onrender.com/api \nDevelopment- http://localhost:${PORT}/api/docs`);
+  console.log(`API Docs available at Production- https://membershipbackend.onrender.com/api/docs \nDevelopment- http://localhost:${PORT}/api/docs`);
 });
