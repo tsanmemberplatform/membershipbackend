@@ -548,11 +548,15 @@ if (!filter.stateScoutCouncil) {
       { $group: { _id: "$gender", total: { $sum: 1 } } },
     ]);
 
-    // 🧭 4️⃣ SCOUTING ROLE DISTRIBUTION
+    // 🧭 4️⃣ SCOUTING ROLE DISTRIBUTION    
     const roleStats = await userModel.aggregate([
-      { $match: filter },
-      { $group: { _id: "$scoutingRole", total: { $sum: 1 } } },
-    ]);
+  { $group: {
+      _id: { $toLower: { $trim: { input: "$scoutingRole" } } },
+      total: { $sum: 1 }
+    }
+  },
+  { $sort: { total: -1 } }
+]);
 
     // ✅ FINAL RESPONSE
     res.status(200).json({
