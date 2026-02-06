@@ -280,8 +280,7 @@ exports.getAllUsers = async (req, res) => {
     const filter = {};
     const role = req.user.role;
 
-    /**
-     *  ROLE VISIBILITY RULES
+    /* ROLE VISIBILITY RULES
      */
 
     if (role === "superAdmin") {
