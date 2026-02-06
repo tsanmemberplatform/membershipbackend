@@ -6,11 +6,7 @@ const messageModel = require("../models/messageModel");
 const crypto = require("crypto");
 const { Parser } = require("json2csv");
 const invitationModel = require("../models/invitationModel");
-const {
-  inviteUserMail,
-  rejectionMailTemplate,
-  approvalMailTemplate,
-} = require("../utils/mailTemplates");
+const { inviteUserMail, rejectionMailTemplate, approvalMailTemplate } = require("../utils/mailTemplates");
 const sendMail = require("../utils/email");
 const awardProgressModel = require("../models/awardProgressModel");
 const eventModel = require("../models/eventModel");
@@ -231,7 +227,7 @@ exports.updateMemberStatus = async (req, res) => {
       oldValue: user.status,
       newValue: status,
       changedBy: req.user.fullName,
-      remarks: `${req.user.fullName} (${req.user.role}) changed ${user.fullName} status to ${user.status}`,
+      remarks:`${req.user.fullName} (${req.user.role}) changed ${user.fullName} status to ${user.status}`,
       timestamp: new Date(),
     });
 
@@ -263,7 +259,7 @@ exports.getMembersTrainingsByState = async (req, res) => {
       .find()
       .populate(
         "scout",
-        "fullName email membershipId stateScoutCouncil scoutingRole section",
+        "fullName email membershipId stateScoutCouncil scoutingRole section"
       )
       .sort({ createdAt: 1 });
 
@@ -272,6 +268,84 @@ exports.getMembersTrainingsByState = async (req, res) => {
     res
       .status(500)
       .json({ status: false, message: "Server error", error: error.message });
+  }
+};
+exports.getAllUsers = async (req, res) => {
+  try {
+    // Pagination and sorting
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const sort = req.query.sort || "-createdAt";
+
+    // Filters
+    const filter = {};
+
+    if (req.user.role === "ssAdmin") {
+      filter.stateScoutCouncil = req.user.stateScoutCouncil;
+    }
+    if (
+      req.query.stateScoutCouncil &&
+      req.query.stateScoutCouncil.trim() !== "" &&
+      req.user.role !== "ssAdmin"
+    ) {
+      filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+    }
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.section) filter.section = req.query.section;
+    if (req.query.fullName) {
+      filter.fullName = { $regex: req.query.fullName, $options: "i" };
+    }
+
+    const totalUsers = await userModel.countDocuments(filter);
+
+    // Fetch paginated users
+    const users = await userModel
+      .find(filter)
+      .select(
+        "fullName membershipId role scoutingRole section stateScoutCouncil status lastSignedIn"
+      )
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(); // lean() makes objects plain so we can modify them easily
+
+    // ✅ Convert role to human-readable format
+    const roleDisplayMap = {
+      ssAdmin: "State Scout Admin",
+      nsAdmin: "National Scout Admin",
+      superAdmin: "Super Admin",
+      leader: "Scout Leader",
+      member: "Member",
+    };
+
+    const formattedUsers = users.map((user) => ({
+      ...user,
+      displayRole: roleDisplayMap[user.role] || user.role,
+    }));
+
+    // Pagination info
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    res.status(200).json({
+      status: true,
+      message: "Users fetched successfully",
+      pagination: {
+        totalUsers,
+        currentPage: page,
+        totalPages,
+        perPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      data: formattedUsers,
+    });
+  } catch (error) {
+    console.error("GET ALL USERS ERROR:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -290,10 +364,14 @@ exports.getAllUsers = async (req, res) => {
 
     if (role === "superAdmin") {
       //  SEE EVERYTHING — NO FILTER
-    } else if (role === "nsAdmin") {
+    }
+
+    else if (role === "nsAdmin") {
       //  Cannot see superAdmins
       filter.role = { $ne: "superAdmin" };
-    } else if (role === "ssAdmin") {
+    }
+
+    else if (role === "ssAdmin") {
       //  State restriction
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
     }
@@ -310,7 +388,10 @@ exports.getAllUsers = async (req, res) => {
       filter.fullName = { $regex: req.query.fullName, $options: "i" };
     }
 
-    if (req.query.stateScoutCouncil && role !== "ssAdmin") {
+    if (
+      req.query.stateScoutCouncil &&
+      role !== "ssAdmin"
+    ) {
       filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
     }
 
@@ -323,7 +404,7 @@ exports.getAllUsers = async (req, res) => {
     const users = await userModel
       .find(filter)
       .select(
-        "fullName membershipId role scoutingRole section stateScoutCouncil status lastSignedIn",
+        "fullName membershipId role scoutingRole section stateScoutCouncil status lastSignedIn"
       )
       .sort(sort)
       .skip((page - 1) * limit)
@@ -349,14 +430,11 @@ exports.getAllUsers = async (req, res) => {
       pagination: {
         totalUsers,
         currentPage: page,
-        totalPages,
-        perPage: limit,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
         totalPages: Math.ceil(totalUsers / limit),
       },
       data: formattedUsers,
     });
+
   } catch (error) {
     console.error("GET USERS ERROR:", error);
     res.status(500).json({
@@ -365,6 +443,7 @@ exports.getAllUsers = async (req, res) => {
     });
   }
 };
+
 
 exports.getUsersByStatus = async (req, res) => {
   try {
@@ -444,27 +523,30 @@ exports.getReportStatistics = async (req, res) => {
 
     const filter = {};
 
-    if (role === "ssAdmin") {
-      // ssAdmin: locked to their council
-      filter.stateScoutCouncil = userCouncil;
-    }
+if (role === "ssAdmin") {
+  // ssAdmin: locked to their council
+  filter.stateScoutCouncil = userCouncil;
+}
 
-    if (
-      req.query.stateScoutCouncil &&
-      req.query.stateScoutCouncil.trim() !== "" &&
-      role !== "ssAdmin"
-    ) {
-      // superAdmin, nsAdmin, or leader/member (if allowed)
-      filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
-    }
+if (
+  req.query.stateScoutCouncil &&
+  req.query.stateScoutCouncil.trim() !== "" &&
+  role !== "ssAdmin"
+) {
+  // superAdmin, nsAdmin, or leader/member (if allowed)
+  filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+}
 
-    if (!filter.stateScoutCouncil) {
-      if (["superAdmin", "nsAdmin"].includes(role)) {
-      } else {
-        // Regular leaders/members default to own council
-        filter.stateScoutCouncil = userCouncil;
-      }
-    }
+if (!filter.stateScoutCouncil) {
+ 
+  if (["superAdmin", "nsAdmin"].includes(role)) {
+   
+  } else {
+    // Regular leaders/members default to own council
+    filter.stateScoutCouncil = userCouncil;
+  }
+}
+
 
     // 🗓 Date range filter
     const now = new Date();
@@ -488,15 +570,7 @@ exports.getReportStatistics = async (req, res) => {
         break;
       case "lastMonth":
         startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        endDate = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          0,
-          23,
-          59,
-          59,
-          999,
-        );
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
         break;
       case "thisYear":
         startDate = new Date(now.getFullYear(), 0, 1);
@@ -570,16 +644,15 @@ exports.getReportStatistics = async (req, res) => {
       { $group: { _id: "$gender", total: { $sum: 1 } } },
     ]);
 
-    // 🧭 4️⃣ SCOUTING ROLE DISTRIBUTION
+    // 🧭 4️⃣ SCOUTING ROLE DISTRIBUTION    
     const roleStats = await userModel.aggregate([
-      {
-        $group: {
-          _id: { $toLower: { $trim: { input: "$scoutingRole" } } },
-          total: { $sum: 1 },
-        },
-      },
-      { $sort: { total: -1 } },
-    ]);
+  { $group: {
+      _id: { $toLower: { $trim: { input: "$scoutingRole" } } },
+      total: { $sum: 1 }
+    }
+  },
+  { $sort: { total: -1 } }
+]);
 
     // ✅ FINAL RESPONSE
     res.status(200).json({
@@ -607,6 +680,7 @@ exports.getReportStatistics = async (req, res) => {
   }
 };
 
+
 exports.sendMessageToScouts = async (req, res) => {
   try {
     const { subject, message, section } = req.body;
@@ -633,7 +707,7 @@ exports.sendMessageToScouts = async (req, res) => {
         return res.status(400).json({
           status: false,
           message: `Invalid section. Valid options: ${validSections.join(
-            ", ",
+            ", "
           )}`,
         });
       }
@@ -683,8 +757,8 @@ exports.sendMessageToScouts = async (req, res) => {
         sender.role === "ssAdmin"
           ? `${sender.stateScoutCouncil} - ${section || "All Scouts"}`
           : section
-            ? section
-            : "All Scouts",
+          ? section
+          : "All Scouts",
       attachmentUrl,
     });
 
@@ -740,7 +814,7 @@ exports.getAllMessages = async (req, res) => {
       const userIds = stateUsers.map((u) => u._id);
       filter.sentById = { $in: userIds };
     }
-
+    
     //  Add search filter if query provided
     if (search) {
       filter.$or = [
@@ -749,7 +823,7 @@ exports.getAllMessages = async (req, res) => {
         { sentBy: { $regex: search, $options: "i" } },
         { sentTo: { $regex: search, $options: "i" } },
       ];
-    }
+    };
     const totalMessages = await messageModel.countDocuments(filter);
 
     const messages = await messageModel
@@ -758,6 +832,7 @@ exports.getAllMessages = async (req, res) => {
       .select("subject sentBy sentTo attachmentUrl dateSent")
       .skip(skip)
       .limit(limit);
+
 
     const totalPages = Math.ceil(totalMessages / limit);
 
@@ -957,7 +1032,7 @@ exports.exportReportStatistics = async (req, res) => {
     const users = await userModel
       .find(filter)
       .select(
-        "fullName email gender scoutingRole stateScoutCouncil dateOfBirth createdAt",
+        "fullName email gender scoutingRole stateScoutCouncil dateOfBirth createdAt"
       );
 
     const nowYear = new Date().getFullYear();
@@ -1035,7 +1110,7 @@ exports.exportReportStatistics = async (req, res) => {
     res.attachment(
       `scout_statistics_${range || "all"}_${
         req.user.role === "ssAdmin" ? req.user.stateScoutCouncil : "all"
-      }.csv`,
+      }.csv`
     );
     res.send(csv);
 
@@ -1125,7 +1200,7 @@ exports.inviteUser = async (req, res) => {
         invite.fullName,
         displayRole,
         invite.council,
-        inviteLink,
+        inviteLink
       ),
     });
 
@@ -1220,7 +1295,7 @@ exports.getUserWithAllDetails = async (req, res) => {
     const user = await userModel
       .findById(id)
       .select(
-        "fullName membershipId profilePic section scoutingRole stateScoutCouncil role email status dateOfBirth gender stateOfOrigin lga address phoneNumber scoutDivision scoutDistrict troop",
+        "fullName membershipId profilePic section scoutingRole stateScoutCouncil role email status dateOfBirth gender stateOfOrigin lga address phoneNumber scoutDivision scoutDistrict troop"
       );
     if (!user)
       return res.status(404).json({ status: false, message: "User not found" });
@@ -1295,7 +1370,7 @@ exports.manageAllEvents = async (req, res) => {
           .collection("users")
           .find(
             { stateScoutCouncil: req.user.stateScoutCouncil },
-            { projection: { _id: 1 } },
+            { projection: { _id: 1 } }
           )
           .map((u) => u._id)
           .toArray(),
@@ -1356,6 +1431,7 @@ exports.manageAllRecords = async (req, res) => {
     const eventQuery = {};
     const trainingQuery = {};
     const awardQuery = {};
+    
 
     // 🔍 Map logical status to actual database fields
     if (status) {
@@ -1364,7 +1440,7 @@ exports.manageAllRecords = async (req, res) => {
           eventQuery.approved = false;
           trainingQuery.status = { $in: ["Pending", "pending", false] };
           awardQuery.status = { $in: ["in-progress", "pending", false] };
-
+          
           break;
 
         case "active":
@@ -1401,7 +1477,7 @@ exports.manageAllRecords = async (req, res) => {
           .collection("users")
           .find(
             { stateScoutCouncil: req.user.stateScoutCouncil },
-            { projection: { _id: 1 } },
+            { projection: { _id: 1 } }
           )
           .map((u) => u._id)
           .toArray(),
@@ -1430,14 +1506,17 @@ exports.manageAllRecords = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
+
     ]);
 
     // Counts
-    const [totalEvents, totalTrainings, totalAwards] = await Promise.all([
-      eventModel.countDocuments(eventQuery),
-      trainingModel.countDocuments(trainingQuery),
-      awardProgressModel.countDocuments(awardQuery),
-    ]);
+    const [totalEvents, totalTrainings, totalAwards ] =
+      await Promise.all([
+        eventModel.countDocuments(eventQuery),
+        trainingModel.countDocuments(trainingQuery),
+        awardProgressModel.countDocuments(awardQuery),
+        
+      ]);
 
     res.status(200).json({
       status: true,
@@ -1448,7 +1527,8 @@ exports.manageAllRecords = async (req, res) => {
         limit,
         eventsCount: totalEvents,
         trainingsCount: totalTrainings,
-        awardsCount: totalAwards,
+        awardsCount: totalAwards
+       
       },
       data: {
         events,
@@ -1578,7 +1658,7 @@ exports.adminEditUser = async (req, res) => {
         message: "User not found.",
       });
     }
-    // Check if email already exists (excluding current user)
+     // Check if email already exists (excluding current user)
     if (email && email !== user.email) {
       const existingEmail = await userModel.findOne({ email });
       if (existingEmail && existingEmail._id.toString() !== id) {
@@ -1595,8 +1675,7 @@ exports.adminEditUser = async (req, res) => {
       if (existingPhone && existingPhone._id.toString() !== id) {
         return res.status(400).json({
           status: false,
-          message:
-            "Phone number already exists. Please use a different number.",
+          message: "Phone number already exists. Please use a different number.",
         });
       }
     }
@@ -1857,7 +1936,7 @@ exports.acceptItem = async (req, res) => {
         recipientName,
         message,
         user.fullName,
-        displayRole,
+        displayRole
       ),
     });
 
@@ -1947,11 +2026,9 @@ exports.rejectItem = async (req, res) => {
       email: recipientEmail,
       subject: title,
       text: `Rejection Notification`,
-      html: rejectionMailTemplate(
-        recipientName,
-        message,
+      html: rejectionMailTemplate(recipientName, message,
         user.fullName,
-        displayRole,
+        displayRole
       ),
     });
 
@@ -1986,7 +2063,7 @@ exports.getAllRecordStats = async (req, res) => {
         .collection("users")
         .find(
           { stateScoutCouncil: req.user.stateScoutCouncil },
-          { projection: { _id: 1 } },
+          { projection: { _id: 1 } }
         )
         .map((u) => u._id)
         .toArray();
@@ -2026,27 +2103,15 @@ exports.getAllRecordStats = async (req, res) => {
 
       // ---- TRAININGS ----
       trainingModel.countDocuments(),
-      trainingModel.countDocuments({
-        status: { $in: ["Pending", "pending", false] },
-      }),
-      trainingModel.countDocuments({
-        status: { $in: ["Verified", "verified", true] },
-      }),
-      trainingModel.countDocuments({
-        status: { $in: ["Rejected", "rejected"] },
-      }),
+      trainingModel.countDocuments({ status: { $in: ["Pending", "pending", false] } }),
+      trainingModel.countDocuments({ status: { $in: ["Verified", "verified", true] } }),
+      trainingModel.countDocuments({ status: { $in: ["Rejected", "rejected"] } }),
 
       // ---- AWARDS ----
       awardProgressModel.countDocuments(),
-      awardProgressModel.countDocuments({
-        status: { $in: ["in-progress", "pending", false] },
-      }),
-      awardProgressModel.countDocuments({
-        status: { $in: ["approved", "Approved", true] },
-      }),
-      awardProgressModel.countDocuments({
-        status: { $in: ["rejected", "Rejected"] },
-      }),
+      awardProgressModel.countDocuments({ status: { $in: ["in-progress", "pending", false] } }),
+      awardProgressModel.countDocuments({ status: { $in: ["approved", "Approved", true] } }),
+      awardProgressModel.countDocuments({ status: { $in: ["rejected", "Rejected"] } }),
     ]);
 
     // Summarize by category
