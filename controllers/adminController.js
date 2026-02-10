@@ -267,7 +267,105 @@ exports.getMembersTrainingsByState = async (req, res) => {
   } catch (error) {
     res
       .status(500)
-      .json({ status: false, message: "Ser
+      .json({ status: false, message: "Server error", error: error.message });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+    const sort = req.query.sort || "-createdAt";
+
+    const filter = {};
+    const role = req.user.role;
+
+    /**
+     *  ROLE VISIBILITY RULES
+     */
+
+    if (role === "superAdmin") {
+      //  SEE EVERYTHING — NO FILTER
+    } else if (role === "nsAdmin") {
+      //  Cannot see superAdmins
+      filter.role = { $ne: "superAdmin" };
+    } else if (role === "ssAdmin") {
+      //  State restriction
+      filter.stateScoutCouncil = req.user.stateScoutCouncil;
+    }
+
+    /**
+     *  OPTIONAL FILTERS
+     */
+
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.section) filter.section = req.query.section;
+    if (req.query.role) filter.role = req.query.role;
+
+    if (req.query.fullName) {
+      const keywords = req.query.fullName.trim().split(/\s+/);
+      // Ensures EVERY word searched exists somewhere in the name
+      filter.$and = keywords.map(word => ({
+        fullName: { $regex: word, $options: "i" }
+      }));
+    }
+
+    if (req.query.stateScoutCouncil && role !== "ssAdmin") {
+      filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+    }
+
+    /**
+     * QUERY
+     */
+
+    const [totalUsers, users] = await Promise.all([ 
+      userModel.countDocuments(filter),
+      userModel
+      .find(filter)
+      .select( "fullName membershipId role scoutingRole section stateScoutCouncil status lastSignedIn",)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean()
+    ]);
+
+    const totalPages = Math.ceil(totalUsers / limit) || 1;
+
+    const roleDisplayMap = {
+      superAdmin: "Super Admin",
+      nsAdmin: "National Scout Admin",
+      ssAdmin: "State Scout Admin",
+      leader: "Scout Leader",
+      member: "Member",
+    };
+
+    const formattedUsers = users.map((u) => ({
+      ...u,
+      displayRole: roleDisplayMap[u.role] || u.role,
+    }));
+
+    res.status(200).json({
+      status: true,
+      message: "Users fetched successfully",
+      pagination: {
+        totalUsers,
+        currentPage: page,
+        totalPages,
+        perPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        totalPages: Math.ceil(totalUsers / limit),
+      },
+      data: formattedUsers,
+    });
+  } catch (error) {
+    console.error("GET USERS ERROR:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
+};
 
 exports.getUsersByStatus = async (req, res) => {
   try {
