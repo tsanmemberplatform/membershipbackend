@@ -13,7 +13,7 @@ const resetPasswordMail = (otp, fullName) => {
         <h2 style="margin-top:0; color:#000;">Hello ${fullName.split(" ")[0]},</h2>
         <p style="font-size:15px; line-height:1.6;">
           You have requested for a <strong>change of password</strong>.  
-          Please use the 6-digit otp code below to reset your password
+          Please use the 6-digit one time password code below to reset your password. This emaill is valid for <strong>10 minutes</strong>.
         </p>
 
         <!-- OTP Box -->
@@ -26,21 +26,22 @@ const resetPasswordMail = (otp, fullName) => {
         </div>
 
         <p style="font-size:14px; color:#555; line-height:1.6;">
-           This emaill is valid for <strong>10 minutes</strong>.  
+             
           If you did not make this request, don't worry. \n
           Your password is still safe and you can disregard this email
         </p>
 
-        <p style="margin-top:25px; font-size:14px; color:#444;">
-          With care,<br/>
+        <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
           <strong style="color:#18b818;">The TSAN Team</strong>
         </p>
       </div>
 
-      <!-- Footer -->
+        <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-      <p style="margin:0; font-weight:bold;">Best regards</p>
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
     </div>
@@ -73,19 +74,19 @@ const welcomeMail = (otp, fullName) => {
             If you did not make this request, you can disregard this email or contact your administrator.  
           </p>
           
-        <p style="margin-top:25px; font-size:14px; color:#444;">
-          With care,<br/>
+        <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
           <strong style="color:#18b818;">The TSAN Team</strong>
         </p>
       </div>
 
-      <!-- Footer -->
+        <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-      <p style="margin:0; font-weight:bold;">Best regards</p>
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
-     
-        </div>
+      </div>
       </div>
     </div>
   `;
@@ -103,13 +104,17 @@ const emailVerificationMail = (link, fullName) => {
          Verify Email
       </a>
       <p>If you did not create this account, please ignore this message.</p>
-      <p>Regards,<br/>TSAN Team</p>
+      <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
+          <strong style="color:#18b818;">The TSAN Team</strong>
+        </p>
 
       
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-      <p style="margin:0; font-weight:bold;">Best regards</p>
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
     </div>
@@ -144,19 +149,20 @@ const twoFAMail = (otp, fullName) => {
             via email <a href="mailto:websupport@scout.org.ng" style="color:#2e6da4; text-decoration:none;">websupport@scout.org.ng</a>.
           </p>
           
-        <p style="margin-top:25px; font-size:14px; color:#444;">
-          With care,<br/>
+        <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
           <strong style="color:#18b818;">The TSAN Team</strong>
         </p>
       </div>
 
       <!-- Footer -->
+        <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
-      
-     
-        </div>
+      </div>
       </div>
     </div>
   `;
@@ -185,6 +191,17 @@ const mfaEmailTemplate = (fullName, otp) => {
         <div class="otp">${otp}</div>
         <p>If you did not initiate this action, please contact us immediately at <a href="mailto:websupport@scout.org.ng">websupport@scout.org.ng</a>.</p>
         <p class="footer">This code will expire in 10 minutes.</p>
+        <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
+          <strong style="color:#18b818;">The TSAN Team</strong>
+        </p>
+      </div>
+      <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -219,14 +236,17 @@ const inviteUserMail = (fullName, role, council, inviteLink) => {
             you’ll need to request a new invite.
           </p>
 
-          <p style="margin-top:25px; font-size:14px; color:#444;">
-            With care,<br/>
-            <strong style="color:#18b818;">The TSAN Team</strong>
-          </p>
+          <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
+          <strong style="color:#18b818;">The TSAN Team</strong>
+        </p>
         </div>
 
-        <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#fff;">
-      <p style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#fff; text-decoration:underline;">webscout@email.com</a></p>
+        <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
       <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
       </div>
         </div>
@@ -242,7 +262,17 @@ const approvalMailTemplate = (name, message, approver, displayRole) => {
     <p>Hello <b>${name}</b>,</p>
     <p>${message}</p>
     <p>Approved by: <b>${approver}</b> (${displayRole})</p>
-    <p>© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+    <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
+          <strong style="color:#18b818;">The TSAN Team</strong>
+        </p>
+    <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
   </div>
 `;
 };
@@ -254,7 +284,17 @@ const rejectionMailTemplate = (name, message, rejector, displayRole) => {
     <p>Hello <b>${name}</b>,</p>
     <p>${message}</p>
     <p>Rejected by: <b>${rejector}</b> (${displayRole})</p>
-    <p>© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+    <p
+         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
+          <strong style="color:#18b818;">The TSAN Team</strong>
+        </p>
+    <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
   </div>
 `;
 }
