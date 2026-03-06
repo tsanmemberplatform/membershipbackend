@@ -55,8 +55,8 @@ exports.getMyLogs = async (req, res) => {
     ]);
 
     if (!logs.length) {
-      return res.status(404).json({
-        status: false,
+      return res.status(200).json({
+        status: true,
         message: "No logs found for this user"
       });
     }

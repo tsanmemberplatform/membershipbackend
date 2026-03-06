@@ -448,7 +448,7 @@ exports.getUpcomingEvents = async (req, res) => {
       .limit(limit);
     
     if (!events || events.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         status: true,
         message: "No upcoming events found",
       });

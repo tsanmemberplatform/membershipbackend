@@ -1521,7 +1521,7 @@ exports.getAllAdmins = async (req, res) => {
 
     const admins = await userModel
       .find(query)
-      .select("fullName email role stateScoutCouncil status lastSignedIn")
+      .select("fullName email role scoutingRole stateScoutCouncil status lastSignedIn")
       .sort({ createdAt: sortOrder })
       .skip(skip)
       .limit(pageSize);
