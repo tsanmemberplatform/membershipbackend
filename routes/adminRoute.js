@@ -10,7 +10,6 @@ const { uploadGeneralFile } = require("../utils/multer");
  *   description: Role management endpoints
  */
 
-
 /**
  * @swagger
  * /admin/status:

@@ -1526,6 +1526,16 @@ exports.getAllAdmins = async (req, res) => {
       .skip(skip)
       .limit(pageSize);
 
+      const roleDisplayMap = {
+        superAdmin: "Super Admin",
+        nsAdmin: "National Scout Admin",
+        ssAdmin: "State Scout Admin",
+      };
+      const adminsWithDisplayRole = admins.map((admin) => ({
+        ...admin.toObject(),
+        displayRole: roleDisplayMap[admin.role] || admin.role,
+      }));
+
     res.status(200).json({
       status: true,
       message: "Admins fetched successfully",
@@ -1533,7 +1543,7 @@ exports.getAllAdmins = async (req, res) => {
       currentPage: pageNumber,
       totalPages: Math.ceil(totalAdmins / pageSize),
       pageSize: admins.length,
-      data: admins,
+      data: adminsWithDisplayRole,
     });
   } catch (error) {
     console.error("Error fetching admins:", error);

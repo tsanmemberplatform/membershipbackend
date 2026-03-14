@@ -31,10 +31,7 @@ const resetPasswordMail = (otp, fullName) => {
           Your password is still safe and you can disregard this email
         </p>
 
-        <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+        
       </div>
 
         <!-- Footer -->
@@ -74,10 +71,7 @@ const welcomeMail = (otp, fullName) => {
             If you did not make this request, you can disregard this email or contact your administrator.  
           </p>
           
-        <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+        
       </div>
 
         <!-- Footer -->
@@ -104,10 +98,7 @@ const emailVerificationMail = (link, fullName) => {
          Verify Email
       </a>
       <p>If you did not create this account, please ignore this message.</p>
-      <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+      
 
       
       <!-- Footer -->
@@ -132,7 +123,7 @@ const twoFAMail = (otp, fullName) => {
             Hello ${fullName.split(" ")[0]},
           </p>
           <p style="font-size:15px; line-height:1.6;">
-            Please enter the code below to complete your login:
+            Please enter the code below to complete your two factor authentication process. This code will expire in 10 minutes.:
           </p>
 
           <!-- OTP -->
@@ -149,10 +140,7 @@ const twoFAMail = (otp, fullName) => {
             via email <a href="mailto:websupport@scout.org.ng" style="color:#2e6da4; text-decoration:none;">websupport@scout.org.ng</a>.
           </p>
           
-        <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+        
       </div>
 
       <!-- Footer -->
@@ -191,10 +179,7 @@ const mfaEmailTemplate = (fullName, otp) => {
         <div class="otp">${otp}</div>
         <p>If you did not initiate this action, please contact us immediately at <a href="mailto:websupport@scout.org.ng">websupport@scout.org.ng</a>.</p>
         <p class="footer">This code will expire in 10 minutes.</p>
-        <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+        
       </div>
       <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
@@ -236,10 +221,7 @@ const inviteUserMail = (fullName, role, council, inviteLink) => {
             you’ll need to request a new invite.
           </p>
 
-          <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+          
         </div>
 
         <!-- Footer -->
@@ -262,10 +244,7 @@ const approvalMailTemplate = (name, message, approver, displayRole) => {
     <p>Hello <b>${name}</b>,</p>
     <p>${message}</p>
     <p>Approved by: <b>${approver}</b> (${displayRole})</p>
-    <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+   
     <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
       <img
@@ -284,10 +263,7 @@ const rejectionMailTemplate = (name, message, rejector, displayRole) => {
     <p>Hello <b>${name}</b>,</p>
     <p>${message}</p>
     <p>Rejected by: <b>${rejector}</b> (${displayRole})</p>
-    <p
-         style="margin:5px 0 0 0;">Support: <a href="mailto:websupport@scouts.org.ng" style="color:#18b818; text-decoration:underline;">webscout@email.com</a> <br>
-          <strong style="color:#18b818;">The TSAN Team</strong>
-        </p>
+    
     <!-- Footer -->
       <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
       <img
