@@ -1,7 +1,7 @@
 const ActivityLog = require("../models/logModel");
 const fs = require("fs").promises;
 const cloudinary = require("../config/cloudinary");
-const auditTrailModel = require("../models/auditTrailModel");
+const {auditTrailModel} = require("../models/auditTrailModel");
 
 exports.createLog = async (req, res) => {
   try {
@@ -149,7 +149,8 @@ exports.updateLog = async (req, res) => {
   // Delete log (owner or admin)
 exports.deleteLog = async (req, res) => {
     try {
-      const log = await ActivityLog.findById(req.params.id);
+      const {id} = req.params;
+      const log = await ActivityLog.findById(id);
       if (!log) return res.status(404).json({ status: false, message: "Activity log not found" });
 
       if (log.scout.toString() !== req.user._id.toString() &&
@@ -159,15 +160,18 @@ exports.deleteLog = async (req, res) => {
 
     const oldValue = log.activityType || "N/A";
     await log.deleteOne();
+
     await auditTrailModel.create({
       userId: req.user._id,
       field: "Activity Log Deletion",
       oldValue,
       newValue: "Deleted",
       changedBy: req.user.fullName,
+      remarks: `Deleted log with ID: ${id}`,
+      timestamp: new Date(),
     });
 
-      res.json({ status: true, message: "Activity log deleted" });
+      res.status(200).json({ status: true, message: "Activity log deleted" });
     } catch (error) {
       res.status(500).json({ status: false, message: error.message });
     }
