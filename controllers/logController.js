@@ -1,6 +1,7 @@
 const ActivityLog = require("../models/logModel");
 const fs = require("fs").promises;
 const cloudinary = require("../config/cloudinary");
+const auditTrailModel = require("../models/auditTrailModel");
 
 exports.createLog = async (req, res) => {
   try {
