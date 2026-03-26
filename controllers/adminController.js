@@ -27,7 +27,7 @@ exports.promoteRole = async (req, res) => {
         .json({ status: false, message: "Email and newRole are required" });
     }
 
-    const validRoles = ["member", "ssAdmin", "nsAdmin", "superAdmin"];
+    const validRoles = ["member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
     if (!validRoles.includes(newRole)) {
       return res.status(400).json({ status: false, message: "Invalid role" });
     }

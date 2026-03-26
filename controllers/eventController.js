@@ -5,7 +5,7 @@ const eventModel = require("../models/eventModel");
 const cloudinary = require('../config/cloudinary');
 const { auditTrailModel } = require("../models/auditTrailModel");
 const { login } = require("./userController");
-const ADMIN_ROLES = ["superAdmin", "nsAdmin", "ssAdmin"];
+const ADMIN_ROLES = ["superAdmin", "distAdmin", "nsAdmin", "ssAdmin"];
 const handleError = (res, err, status = 500) => res.status(status).json({ status: false, message: err.message || "Internal Server Error" });
 
 

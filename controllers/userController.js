@@ -1096,7 +1096,7 @@ exports.updateUserProfile = async (req, res) => {
       if (!user) return res.status(404).json({status: false, message: "User not found" });
 
       let editableFields;
-      if (["ssAdmin", "nsAdmin", "superAdmin"].includes(user.role)){
+      if (["ssAdmin", "distAdmin", "nsAdmin", "superAdmin"].includes(user.role)){
         editableFields = Object.keys(user._doc).filter(
           (key) => !["_id", "email", "password", "role", "createdAt", "updatedAt"].includes(key)
         );

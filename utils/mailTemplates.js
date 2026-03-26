@@ -137,7 +137,7 @@ const twoFAMail = (otp, fullName) => {
 
           <p style="font-size:14px; color:#555; line-height:1.6;">
             If you did not initiate this action, please contact us immediately  
-            via email <a href="mailto:websupport@scout.org.ng" style="color:#2e6da4; text-decoration:none;">websupport@scout.org.ng</a>.
+            via email <a href="mailto:websupport@scouts.org.ng" style="color:#2e6da4; text-decoration:none;">websupport@scout.org.ng</a>.
           </p>
           
         
@@ -177,7 +177,7 @@ const mfaEmailTemplate = (fullName, otp) => {
         <p>Hello <strong>${fullName.split(" ")[0]}</strong>,</p>
         <p>Please enter the code below to complete your login:</p>
         <div class="otp">${otp}</div>
-        <p>If you did not initiate this action, please contact us immediately at <a href="mailto:websupport@scout.org.ng">websupport@scout.org.ng</a>.</p>
+        <p>If you did not initiate this action, please contact us immediately at <a href="mailto:websupport@scouts.org.ng">websupport@scout.org.ng</a>.</p>
         <p class="footer">This code will expire in 10 minutes.</p>
         
       </div>

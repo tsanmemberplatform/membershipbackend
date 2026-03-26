@@ -115,9 +115,9 @@ exports.getLogById = async (req, res) => {
         .populate("scout", "fullName membershipId email");
       if (!log) return res.status(404).json({ status: false, message: "Activity log not found" });
 
-      // Only owner or admin/leader can view
+      // Only owner or admin can view
       if (req.user._id.toString() !== log.scout._id.toString() &&
-          !["admin", "nsAdmin", "ssAdmin", "leader"].includes(req.user.role)) {
+          !["admin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)) {
         return res.status(403).json({ status: false, message: "Not authorized" });
       }
 
@@ -154,7 +154,7 @@ exports.deleteLog = async (req, res) => {
       if (!log) return res.status(404).json({ status: false, message: "Activity log not found" });
 
       if (log.scout.toString() !== req.user._id.toString() &&
-          !["admin", "nsAdmin", "ssAdmin"].includes(req.user.role)) {
+          !["admin", "distAdmin", "nsAdmin", "ssAdmin"].includes(req.user.role)) {
         return res.status(403).json({ status: false, message: "Not authorized to delete this log" });
       }
 
