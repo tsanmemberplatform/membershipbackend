@@ -19,6 +19,17 @@ const eventSchema = new mongoose.Schema({
     {
       scout: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       status: { type: String, enum: ["Going", "Not Going", "Maybe"], default: "Going" },
+      paymentStatus: {
+      type: String,
+      enum: ['pending', 'paid'],
+      default: 'pending'
+    },
+
+    payment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Payment',
+      default: null
+    },
     },
   ],
 }, { timestamps: true });

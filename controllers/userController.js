@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const qrcode = require("qrcode");
 const cloudinary = require('../config/cloudinary');
 const jwt = require('jsonwebtoken');
-const { resetPasswordMail, welcomeMail, mfaEmailTemplate, twoFAMail } = require('../utils/mailTemplates');
+const { resetPasswordMail, welcomeMail, mfaEmailTemplate, twoFAMail, activationBeforeLogin } = require('../utils/mailTemplates');
 const mongoose = require ('mongoose')
 const speakeasy = require("speakeasy");
 const otpGenerator = require('otp-generator');
@@ -116,10 +116,10 @@ exports.registration = async (req, res) => {
 
 exports.verifyOtp = async (req, res) => {
     try {
-      const { email, phoneNumber, otp } = req.body;
+      const { email, otp } = req.body;
       
-      if ((!email && !phoneNumber) || !otp) {
-        return res.status(400).json({ status: false, message: "Email or phone number and OTP are required" });
+      if (!email || !otp) {
+        return res.status(400).json({ status: false, message: "Email OTP are required" });
       }
       
       const user = await userModel.findOne({
@@ -523,7 +523,7 @@ exports.updateProfile = async (req, res) => {
       return res.status(400).json({ status: false, message: "Email is required" });
     }
 
-    const user = await userModel.findOne({ email }).select("-password");
+    const user = await userModel.findOne({ email: email.toLowerCase() }).select("-password");
     if (!user) {
       return res.status(404).json({ status: false, message: "User not found" });
     }
@@ -569,44 +569,62 @@ exports.login = async (req, res) => {
 
     // First find user with password for verification
     const user = await userModel.findOne({email});
-    
     if (!user) return res.status(404).json({ status: false, message: "Invalid credentials" });
-    
-    // Create a user object without password for response
-    const userWithoutPassword = user.toObject();
-    delete userWithoutPassword.password;
-    delete userWithoutPassword.emailOtp;
-    delete userWithoutPassword.phoneOtp;
-    delete userWithoutPassword.authAppSecret;
 
-
-      if (user.lockUntil && user.lockUntil > Date.now()) {
-        user.isLoggedIn = false;
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      user.isLoggedIn = false;
       await user.save();
       const remaining = Math.ceil((user.lockUntil - Date.now()) / 60000);
       return res.status(403).json({ status: false, message: `Account locked. Try again in ${remaining} minutes.` });
     }
-
+    
     const isMatch = await bcrypt.compare(password, user.password);
-
+    
     if (!isMatch) {
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-
+      
       const attemptLeft = 5 - user.failedLoginAttempts;
-
+      
       if (user.failedLoginAttempts >= 5) {
         user.lockUntil = Date.now() + 15 * 60 * 1000;
         user.isLoggedIn = false; 
         await user.save();
         return res.status(403).json({ status: false, message: "Too many failed attempts. Account locked for 15 minutes." });
       }
-
+      
       await user.save();
       return res.status(401).json({ status: false, message: `Invalid credentials. you have ${attemptLeft} attempt(s) left before account lock. \n Use the Forgot password button` });
     }
-
+    
     user.failedLoginAttempts = 0;
     user.lockUntil = undefined;
+    
+    if(user.emailVerified === false ){
+      const otp = generateOTP();
+      user.emailOtp = otp;
+      user.otpExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+      await user.save();
+      const activationUrl = `${process.env.activatingUrl}${user.email}`;
+      
+      await sendMail({
+      email,
+      subject: `Activate Your Account - ${user.fullName}`,
+      text: 'Activate your account',
+      html: activationBeforeLogin(otp, user.fullName, activationUrl)
+      
+    });
+      
+      return res.status(403).json({
+      status: false, 
+      message: 'A mail has been sent to your registered email account to activate your scout account'
+    })}
+
+    // Create a user object without password for response
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password;
+    delete userWithoutPassword.emailOtp;
+    delete userWithoutPassword.phoneOtp;
+    delete userWithoutPassword.authAppSecret;
 
     if(user.emailAuth === true){
       const otp = generateOTP();

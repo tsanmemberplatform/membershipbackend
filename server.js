@@ -1,9 +1,9 @@
+require('dotenv').config();
+
 if (process.env.NODE_ENV !== 'production') {
   const dns = require('node:dns');
   dns.setServers(['8.8.8.8', '8.8.4.4']);
 }
-
-require('dotenv').config();
 const express = require('express');
 require('./config/database');
 const morgan = require('morgan');
@@ -16,18 +16,19 @@ const trainingRoute = require('./routes/trainingRoute');
 const eventRoute = require('./routes/eventRoute');
 const logRoute = require('./routes/logRoute');
 const awardRoute = require('./routes/awardRoute');
+const paymentRoute = require('./routes/paymentRoute');
 const swaggerUi = require("swagger-ui-express");
 const swaggerJSDoc = require("swagger-jsdoc");
 const { checkSuspension, auth } = require('./middleware/authMiddleware');
-
+const startAgenda = require('./jobs');
 
 const PORT = process.env.PORT;
 
 const ENV = process.env.NODE_ENV || "development";
 const BASE_URL =
-  ENV === "production"
-    ? "https://membershipbackend.onrender.com/api"
-    : `http://localhost:${PORT}/api`;
+ENV === "production"
+? "https://membershipbackend.onrender.com/api"
+: `http://localhost:${PORT}/api`;
 
 
 const swaggerOptions = {
@@ -39,24 +40,24 @@ const swaggerOptions = {
       description: "API documentation for TSAN Database Management",
     },
     servers: [{ url: "https://membershipbackend.onrender.com/api",
-        description: 'production Server'
-     },
-        {url: `http://localhost:${PORT}/api`, 
-            description: 'Development server'
-        }
-    ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-        },
+      description: 'production Server'
+    },
+    {url: `http://localhost:${PORT}/api`, 
+      description: 'Development server'
+    }
+  ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
       },
     },
-    security: [{ bearerAuth: [] }],
   },
-  apis: ["./routes/*.js"], 
+  security: [{ bearerAuth: [] }],
+},
+apis: ["./routes/*.js"], 
 };
 
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
@@ -71,8 +72,10 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
 app.use("/api/users", userRoutes);
+// NOTE: Keep payment routes before global auth so webhook callbacks can reach the endpoint.
+app.use("/api/payments", paymentRoute);
 /**
- * ✅ GLOBAL SUSPENSION CHECK
+ * GLOBAL SUSPENSION CHECK
  * This ensures suspended users cannot perform write operations (POST, PUT, PATCH, DELETE)
  **/
 app.use(auth)
@@ -110,7 +113,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ status: false, message: "Internal server error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`API Docs available at Production- https://membershipbackend.onrender.com/api/docs \nDevelopment- http://localhost:${PORT}/api/docs`);
-});
+
+const startServer = async () => {
+  try {
+    // 1. Start the Agenda background jobs
+    await startAgenda();
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`API Docs available at Production- https://membershipbackend.onrender.com/api/docs \nDevelopment- http://localhost:${PORT}/api/docs`);
+  });
+}catch(error){
+  console.error(error.message);
+  process.exit(1);  
+}
+}
+
+startServer();

@@ -86,6 +86,49 @@ const welcomeMail = (otp, fullName) => {
   `;
 };
 
+const activationBeforeLogin = (otp, fullName, activateUrl) => {
+  return `
+    <div style="background: #f9f9f9; padding:40px; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+        
+        <div style="padding:30px; color:#333;">
+          <h2 style="margin-top:0; color:#000000;">Hello ${fullName.split(" ")[0]}, </h2>
+          <p style="font-size:15px; line-height:1.6;">
+            Thank you for your registration, We're excited to have you back. Please use the link below and input your <span style="display:inline-block; font-size:20px; font-weight:bold; 
+                         letter-spacing:4px; color:#000; background:#f9f9f9; 
+                         padding:6px 12px; border-radius:4px; border:1px;">
+              ${otp}
+            </span> to activate your account:
+          </p>
+          
+          <!-- ACTIVATION BUTTON -->
+          <div style="text-align:center; margin:30px 0;">
+            <a href="${activateUrl}" 
+               style="display:inline-block; font-size:18px; font-weight:bold; text-decoration:none;
+                      color:#ffffff; background:#18b818; padding:15px 35px; border-radius:8px; 
+                      box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background 0.3s ease;">
+              Activate My Account
+            </a>
+          </div>
+          <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+            This email was sent to users to activate their accounts.  
+          </p>
+          
+        
+      </div>
+
+        <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
+      </div>
+    </div>
+  `;
+};
+
 
 const emailVerificationMail = (link, fullName) => {
   return `
@@ -281,6 +324,7 @@ const rejectionMailTemplate = (name, message, rejector, displayRole) => {
 module.exports = {
   resetPasswordMail,
   welcomeMail,
+  activationBeforeLogin,
   emailVerificationMail,
   twoFAMail,
   mfaEmailTemplate, 
