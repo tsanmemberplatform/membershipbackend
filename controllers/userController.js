@@ -148,10 +148,10 @@ exports.verifyOtp = async (req, res) => {
         verified = true;
       }
       
-      if (phoneNumber && user.phoneOtp === otp) {
-        user.phoneVerified = true; 
-        verified = true;
-      }
+      // if (phoneNumber && user.phoneOtp === otp) {
+      //   user.phoneVerified = true; 
+      //   verified = true;
+      // }
       
       if (!verified) {
         return res.status(400).json({ status: false, message: "Invalid OTP" });
@@ -162,11 +162,11 @@ exports.verifyOtp = async (req, res) => {
         user.membershipId = await generateMembershipId(userModel);
       }
       
-      
+      // && user.phoneVerified
     
-      if (user.emailVerified && user.phoneVerified) {
+      if (user.emailVerified ) {
         user.emailOtp = undefined;
-        user.phoneOtp = undefined;
+        // user.phoneOtp = undefined;
         user.otpExpires = undefined;
       }   
 
@@ -217,7 +217,7 @@ exports.verifyOtp = async (req, res) => {
         status: true,
         message: "OTP verified successfully",
         emailVerified: user.emailVerified,
-        phoneVerified: user.phoneVerified,
+        // phoneVerified: user.phoneVerified,
         membershipId: user.membershipId
       });
 
