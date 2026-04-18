@@ -16,6 +16,7 @@ const trainingRoute = require('./routes/trainingRoute');
 const eventRoute = require('./routes/eventRoute');
 const logRoute = require('./routes/logRoute');
 const awardRoute = require('./routes/awardRoute');
+const idCardRoute = require('./routes/idRoute');
 const paymentRoute = require('./routes/paymentRoute');
 const swaggerUi = require("swagger-ui-express");
 const swaggerJSDoc = require("swagger-jsdoc");
@@ -90,6 +91,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/trainings", trainingRoute);
 app.use("/api/events", eventRoute);
 app.use("/api/logs", logRoute);
+app.use("/api/idcard", idCardRoute);
 app.use("/api/awards", awardRoute);
 app.use((err, req, res, next) => {
    if (err.type === "entity.too.large") {

@@ -317,6 +317,84 @@ const rejectionMailTemplate = (name, message, rejector, displayRole) => {
   </div>
 `;
 }
+const idPaymentSuccessTemplate = (fullName, amount) => {
+  return `
+  <div style="background: #f9f9f9; padding:40px; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+        
+        <div style="padding:30px; color:#333;">
+          <h2 style="margin-top:0; color:#000000;">Hello ${fullName.split(" ")[0]}, </h2>
+          <p style="font-size:15px; line-height:1.6;">
+            Your ID card payment of ₦${amount} was successful. Your request is now being processed.
+          </p>
+
+
+          <p style="font-size:14px; color:#555; line-height:1.6;">
+            You will receive another email once your ID card is ready for collection.
+          </p>
+      </div>
+        <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
+      </div>
+    </div>
+`;
+};
+
+const idStatusUpdateTemplate = (fullName, status) => {
+  return`
+  <div style="background: #f9f9f9; padding:40px; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+        
+        <div style="padding:30px; color:#333;">
+          <h2 style="margin-top:0; color:#000000;">Hello ${fullName.split(" ")[0]}, </h2>
+          <p style="font-size:15px; line-height:1.6;">
+            Your ID card status has been updated to ${status.replaceAll('_', ' ').toUppercase()}
+          </p>
+                 
+      </div>
+
+        <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
+      </div>
+    </div>
+`;
+};
+
+const receiptTemplate = (name) => {
+  return`
+  <div style="background: #f9f9f9; padding:40px; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+        
+        <div style="padding:30px; color:#333;">
+          <h2 style="margin-top:0; color:#000000;">Hello ${fullName.split(" ")[0]}, </h2>
+          <p style="font-size:15px; line-height:1.6;">
+            Your payment was successful. please find your receipt attached. 
+          </p>
+      </div>
+        <!-- Footer -->
+      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+      <img
+        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
+        style="max-width:34px; height:auto;">
+      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
+      </div>
+      </div>
+    </div>
+  <h2>Payment Receipt</h2>
+  <p>Hello ${name},</p>
+  <p>Your payment was successful. Please find your receipt attached.</p>
+`;
+};
 
 
 
@@ -330,5 +408,9 @@ module.exports = {
   mfaEmailTemplate, 
   inviteUserMail,
   approvalMailTemplate,
-  rejectionMailTemplate
+  rejectionMailTemplate,
+  idPaymentSuccessTemplate,
+  idStatusUpdateTemplate,
+  receiptTemplate,
+  
 };

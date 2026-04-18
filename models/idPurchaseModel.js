@@ -1,20 +1,40 @@
 const mongoose = require('mongoose');
 
-const idPurchaseSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+const idPurchaseSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-  payment: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Payment',
-    required: true
+    payment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: ["pending", "paid", "confirmed", "ready", "completed", "failed"],
+      default: "pending",
+    },
+    qrCode: {
+      payload: { type: String, default: null }, // signed payload
+      imageDataUrl: { type: String, default: null }, // base64 QR image
+      generatedAt: { type: Date, default: null },
+      isActive: { type: Boolean, default: false },
+      lastScannedAt: { type: Date, default: null },
+    },
+    adminConfirm: {
+      tokenHash: { type: String, default: null },
+      expiresAt: { type: Date, default: null },
+      requestedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      usedAt: { type: Date, default: null },
+    },
   },
-
-  status: {
-    type: String,
-    enum: ['pending', 'processing', 'completed'],
-    default: 'pending'
-  }
-
-}, { timestamps: true });
+  { timestamps: true },
+);
 
 module.exports = mongoose.model('IdPurchase', idPurchaseSchema);
+

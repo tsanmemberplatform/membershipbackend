@@ -2,31 +2,58 @@ const paymentModel = require("../models/paymentModel");
 const idPurchaseModel = require("../models/idPurchaseModel");
 const eventModel = require("../models/eventModel");
 const { userModel } = require("../models/userModel");
+const { getPaymentUrls } = require("../utils/paymentUrls");
 
-// NOTE: Admin roles used for payment-level privileged access checks.
 const ADMIN_ROLES = ["ssAdmin", "nsAdmin", "superAdmin"];
+const ACTIVE_ID_REQUEST_STATUSES = ["pending", "paid", "confirmed"];
 
-// NOTE: Centralized Korapay headers for initialize/verify requests.
 const getKoraHeaders = () => ({
   Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
   "Content-Type": "application/json",
 });
 
-// NOTE: This helper applies business side effects only once after a successful payment.
+const initializeWithProvider = async ({
+  payment,
+  customerName,
+  customerEmail,
+  notificationUrl,
+  redirectUrl,
+}) => {
+  const gatewayResponse = await fetch(
+    "https://api.korapay.com/merchant/api/v1/charges/initialize",
+    {
+      method: "POST",
+      headers: getKoraHeaders(),
+      body: JSON.stringify({
+        amount: payment.amount,
+        currency: payment.currency || "NGN",
+        reference: payment.reference,
+        customer: {
+          name: customerName,
+          email: customerEmail,
+        },
+        notification_url: notificationUrl,
+        redirect_url: redirectUrl,
+      }),
+    }
+  );
+
+  const gatewayData = await gatewayResponse.json();
+  return { gatewayResponse, gatewayData };
+};
+
 const applySuccessfulPaymentSideEffects = async (paymentDoc) => {
   if (paymentDoc.paymentType === "id_card") {
-    // NOTE: Link payment to ID purchase record.
     await idPurchaseModel.findOneAndUpdate(
       { payment: paymentDoc._id },
       {
         user: paymentDoc.user,
         payment: paymentDoc._id,
-        status: "completed",
+        status: "paid",
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // NOTE: Mark ID card as paid on user profile.
     await userModel.findByIdAndUpdate(paymentDoc.user, {
       "idCard.paid": true,
       "idCard.paidAt": new Date(),
@@ -37,7 +64,6 @@ const applySuccessfulPaymentSideEffects = async (paymentDoc) => {
     const event = await eventModel.findById(paymentDoc.event);
     if (!event) return;
 
-    // NOTE: Ensure only one attendee record per user while attaching payment references.
     event.attendees = event.attendees.filter(
       (attendee) => attendee.scout.toString() !== paymentDoc.user.toString()
     );
@@ -55,74 +81,109 @@ const applySuccessfulPaymentSideEffects = async (paymentDoc) => {
 
 exports.initializePayment = async (req, res) => {
   try {
-    const { amount, paymentType, eventId } = req.body;
-    const userEmail = req.user?.email;
+    const { reference, paymentType, amount, eventId } = req.body;
+    const { notificationUrl, redirectUrl } = getPaymentUrls(req);
 
-    // NOTE: Input validation for required payment fields.
-    if (!amount || !paymentType) {
-      return res.status(400).json({
-        status: false,
-        message: "amount and paymentType are required",
+    // FLOW A: Align with your original ID-card flow -> initialize by existing reference.
+    if (reference) {
+      const payment = await paymentModel.findOne({ reference }).populate("user");
+      if (!payment) {
+        return res.status(404).json({ status: false, message: "Payment not found" });
+      }
+
+      const canAccess =
+        payment.user?._id?.toString() === req.user._id.toString() ||
+        ADMIN_ROLES.includes(req.user.role);
+      if (!canAccess) {
+        return res
+          .status(403)
+          .json({ status: false, message: "Not authorized to initialize this payment" });
+      }
+
+      const { gatewayResponse, gatewayData } = await initializeWithProvider({
+        payment,
+        customerName: payment.user?.fullName || "TSAN User",
+        customerEmail: payment.user?.email || req.user.email,
+        notificationUrl,
+        redirectUrl,
       });
-    }
 
-    if (!["id_card", "event"].includes(paymentType)) {
-      return res.status(400).json({
-        status: false,
-        message: "paymentType must be either 'id_card' or 'event'",
-      });
-    }
-
-    // NOTE: Event payment requires a valid event reference.
-    let event = null;
-    if (paymentType === "event") {
-      if (!eventId) {
-        return res.status(400).json({
+      if (!gatewayResponse.ok || !gatewayData?.data?.checkout_url) {
+        return res.status(502).json({
           status: false,
-          message: "eventId is required for event payment",
+          message: "Unable to initialize payment with provider",
+          providerResponse: gatewayData,
         });
       }
 
-      event = await eventModel.findById(eventId);
-      if (!event) {
-        return res.status(404).json({
-          status: false,
-          message: "Event not found",
-        });
-      }
+      return res.status(200).json({
+        status: true,
+        message: "Payment initialized successfully",
+        paymentLink: gatewayData.data.checkout_url,
+        data: {
+          paymentId: payment._id,
+          reference: payment.reference,
+          amount: payment.amount,
+          paymentType: payment.paymentType,
+          notificationUrl,
+          redirectUrl,
+        },
+      });
     }
 
-    // NOTE: Local payment reference is persisted before calling gateway.
-    const reference = `TSAN_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    // FLOW B: Event quick-init flow -> create payment then initialize provider.
+    if (paymentType !== "event") {
+      return res.status(400).json({
+        status: false,
+        message:
+          "For id_card, initialize with an existing reference from the ID-card request flow",
+      });
+    }
 
-    const payment = await paymentModel.create({
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({
+        status: false,
+        message: "amount must be a positive number for event payment",
+      });
+    }
+
+    if (!eventId) {
+      return res.status(400).json({
+        status: false,
+        message: "eventId is required for event payment",
+      });
+    }
+
+    const event = await eventModel.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        status: false,
+        message: "Event not found",
+      });
+    }
+
+    const eventReference = `EVT_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const eventPayment = await paymentModel.create({
       user: req.user._id,
-      amount,
-      paymentType,
-      reference,
-      event: event ? event._id : null,
+      amount: parsedAmount,
+      paymentType: "event",
+      reference: eventReference,
+      event: event._id,
       metadata: {
         initiatedByRole: req.user.role,
-        userEmail,
+        userEmail: req.user.email,
       },
     });
 
-    const gatewayResponse = await fetch(
-      "https://api.korapay.com/merchant/api/v1/charges/initialize",
-      {
-        method: "POST",
-        headers: getKoraHeaders(),
-        body: JSON.stringify({
-          amount,
-          currency: "NGN",
-          reference,
-          customer: { email: userEmail },
-          notification_url: process.env.KORA_WEBHOOK_URL || undefined,
-        }),
-      }
-    );
+    const { gatewayResponse, gatewayData } = await initializeWithProvider({
+      payment: eventPayment,
+      customerName: req.user.fullName || "TSAN User",
+      customerEmail: req.user.email,
+      notificationUrl,
+      redirectUrl,
+    });
 
-    const gatewayData = await gatewayResponse.json();
     if (!gatewayResponse.ok || !gatewayData?.data?.checkout_url) {
       return res.status(502).json({
         status: false,
@@ -133,11 +194,15 @@ exports.initializePayment = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message: "Payment initialized successfully",
+      message: "Event payment initialized successfully",
+      paymentLink: gatewayData.data.checkout_url,
       data: {
-        paymentId: payment._id,
-        reference,
-        paymentLink: gatewayData.data.checkout_url,
+        paymentId: eventPayment._id,
+        reference: eventPayment.reference,
+        amount: eventPayment.amount,
+        paymentType: eventPayment.paymentType,
+        notificationUrl,
+        redirectUrl,
       },
     });
   } catch (error) {
@@ -160,7 +225,6 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    // NOTE: User can verify only own payment unless they are an admin role.
     if (
       payment.user.toString() !== req.user._id.toString() &&
       !ADMIN_ROLES.includes(req.user.role)
@@ -224,8 +288,6 @@ exports.koraWebhook = async (req, res) => {
     const payload = req.body || {};
     const data = payload.data || {};
     const reference = data.reference;
-
-    // NOTE: Always return 200 for malformed webhook payloads to avoid endless retries.
     if (!reference) return res.sendStatus(200);
 
     const payment = await paymentModel.findOne({ reference });
@@ -279,6 +341,28 @@ exports.getMyPayments = async (req, res) => {
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       data: payments,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error: " + error.message,
+    });
+  }
+};
+
+exports.getMyIdRequest = async (req, res) => {
+  try {
+    const request = await idPurchaseModel
+      .findOne({
+        user: req.user._id,
+        status: { $in: ACTIVE_ID_REQUEST_STATUSES },
+      })
+      .sort({ createdAt: -1 })
+      .populate("payment");
+
+    return res.status(200).json({
+      status: true,
+      data: request || null,
     });
   } catch (error) {
     return res.status(500).json({

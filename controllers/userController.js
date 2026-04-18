@@ -51,6 +51,31 @@ const generateOTP = () => {
   return membershipId;
 };
 
+const getAgeFromDob = (dateOfBirth) => {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+
+  return age;
+};
+
+const getSectionFromAge = (age) => {
+  if (age == null || age < 5) return null;
+  if (age <= 10) return "Cub";
+  if (age <= 15) return "Scout";
+  if (age <= 20) return "Venturer";
+  if (age <= 24) return "Rover"; // change to <=25 if you want Rover to include 25
+  return "Volunteers"; // 25+
+};
+
+
 
 exports.registration = async (req, res) => {
   try {
@@ -596,6 +621,25 @@ exports.login = async (req, res) => {
       await user.save();
       return res.status(401).json({ status: false, message: `Invalid credentials. you have ${attemptLeft} attempt(s) left before account lock. \n Use the Forgot password button` });
     }
+
+    const age = getAgeFromDob(user.dateOfBirth);
+    const derivedSection = getSectionFromAge(age);
+
+    if (derivedSection && user.section !== derivedSection) {
+      const oldSection = user.section;
+      user.section = derivedSection;
+
+      await auditTrailModel.create({
+        userId: user._id,
+        field: "section",
+        oldValue: oldSection || "",
+        newValue: derivedSection,
+        changedBy: user.email,
+        remarks: `Section auto-updated during login based on age (${age}).`,
+        timestamp: new Date(),
+      });
+    }
+
     
     user.failedLoginAttempts = 0;
     user.lockUntil = undefined;
