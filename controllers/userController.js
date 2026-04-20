@@ -15,6 +15,7 @@ const ActivityLog = require("../models/logModel");
 const trainingModel = require("../models/trainingModel");
 const awardProgressModel = require("../models/awardProgressModel");
 const eventModel = require("../models/eventModel");
+
 const generateOTP = () => {
   return otpGenerator.generate(6, { 
     upperCaseAlphabets: false, 
@@ -72,7 +73,6 @@ const getSectionFromAge = (age) => {
   if (age <= 15) return "Scout";
   if (age <= 20) return "Venturer";
   if (age <= 24) return "Rover"; // change to <=25 if you want Rover to include 25
-  return "Volunteers"; // 25+
 };
 
 

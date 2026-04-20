@@ -20,7 +20,7 @@ const initializeWithProvider = async ({
   redirectUrl,
 }) => {
   const gatewayResponse = await fetch(
-    "https://api.korapay.com/merchant/api/v1/charges/initialize",
+    `${process.env.KORA_BASE_URL}/api/v1/charges/initialize`,
     {
       method: "POST",
       headers: getKoraHeaders(),
@@ -236,7 +236,7 @@ exports.verifyPayment = async (req, res) => {
     }
 
     const gatewayResponse = await fetch(
-      `https://api.korapay.com/merchant/api/v1/charges/${reference}`,
+      `${process.env.KORA_BASE_URL}/api/v1/charges/${reference}`,
       {
         method: "GET",
         headers: getKoraHeaders(),

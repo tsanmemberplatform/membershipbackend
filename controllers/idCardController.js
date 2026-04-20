@@ -62,7 +62,7 @@ exports.requestIdCard = async (req, res) => {
     });
 
     const gatewayResponse = await fetch(
-      "https://api.korapay.com/merchant/api/v1/charges/initialize",
+      `${process.env.KORA_BASE_URL}/api/v1/charges/initialize`,
       {
         method: "POST",
         headers: {
@@ -77,7 +77,6 @@ exports.requestIdCard = async (req, res) => {
             name: user.fullName,
             email: user.email,
           },
-          notification_url: notificationUrl,
           redirect_url: redirectUrl,
         }),
       }
@@ -153,7 +152,7 @@ exports.updateIdStatus = async (req, res) => {
     purchase.status = status;
     await purchase.save();
 
-    if (status === "confirmed") {
+    if (status === "completed") {
       const user = await userModel.findById(userId);
       if (!user?.membershipId) {
         return res
@@ -175,6 +174,7 @@ exports.updateIdStatus = async (req, res) => {
         isActive: true,
         lastScannedAt: null,
       };
+      await purchase.save();
     }
 
     return res.json({
@@ -196,5 +196,70 @@ exports.getMyIdStatus = async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+exports.verifyQr = async (req, res) => {
+  try {
+    const { payload } = req.body;
+
+    const parts = payload.split("|");
+
+    if (parts.length < 5) {
+      return res.status(400).json({ valid: false, message: "Invalid QR format" });
+    }
+
+    const [membershipId, userId, purchaseId, timestamp, signature] = parts;
+
+    const body = `${membershipId}|${userId}|${purchaseId}|${timestamp}`;
+
+    const expectedSig = crypto
+      .createHmac("sha256", process.env.QR_SIGNING_SECRET)
+      .update(body)
+      .digest("hex");
+
+    if (signature !== expectedSig) {
+      return res.status(400).json({
+        valid: false,
+        message: "QR code has been tampered with"
+      });
+    }
+
+    const user = await userModel.findById(userId);
+    const purchase = await IdPurchase.findById(purchaseId);
+
+    if (!user || !purchase) {
+      return res.status(404).json({
+        valid: false,
+        message: "Invalid ID record"
+      });
+    }
+
+    if (!purchase.qrCode?.isActive) {
+      return res.status(400).json({
+        valid: false,
+        message: "QR is inactive"
+      });
+    }
+
+    // 📊 Track scan
+    purchase.qrCode.lastScannedAt = new Date();
+    await purchase.save();
+
+    return res.json({
+      valid: true,
+      data: {
+        name: user.fullName,
+        membershipId: user.membershipId,
+        section: user.section,
+        status: user.status
+      }
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      valid: false,
+      message: err.message
+    });
   }
 };
