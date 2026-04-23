@@ -4,8 +4,8 @@ const eventModel = require("../models/eventModel");
 const { userModel } = require("../models/userModel");
 const { getPaymentUrls } = require("../utils/paymentUrls");
 
-const ADMIN_ROLES = ["ssAdmin", "nsAdmin", "superAdmin"];
-const ACTIVE_ID_REQUEST_STATUSES = ["pending", "paid", "confirmed"];
+const ADMIN_ROLES = ["ssAdmin", "nsAdmin", "superAdmin", "distAdmin"];
+const ACTIVE_ID_REQUEST_STATUSES = ["pending", "paid", "generated"];
 
 const getKoraHeaders = () => ({
   Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,

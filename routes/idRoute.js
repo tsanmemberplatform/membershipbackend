@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus } = require('../controllers/idCardController');
+const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr } = require('../controllers/idCardController');
 const {auth, authorizeRoles } = require('../middleware/authMiddleware');
 
 /**
@@ -126,5 +126,197 @@ router.patch("/update", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmi
  *         description: Internal server error
  */
 router.get("/status", auth, getMyIdStatus);
+
+/**
+ * @swagger
+ * /idcard/admin/requests:
+ *   get:
+ *     summary: Get all ID requests (Admin) with filters and pagination
+ *     tags: [ID Card]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: section
+ *         schema:
+ *           type: string
+ *           enum: [Cub, Scout, Venturer, Rover, Volunteers]
+ *       - in: query
+ *         name: paymentStatus
+ *         schema:
+ *           type: string
+ *           enum: [pending, successful, failed]
+ *       - in: query
+ *         name: fulfillmentStatus
+ *         schema:
+ *           type: string
+ *           enum: [Pending, Generated, Cancelled, Failed]
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by scout name, membership ID, or payment reference
+ *     responses:
+ *       200:
+ *         description: ID requests fetched successfully
+ *       400:
+ *         description: Invalid query or admin setup issue
+ *       403:
+ *         description: Unauthorized role/jurisdiction
+ *       500:
+ *         description: Internal server error
+ */
+router.get(
+  "/admin/requests",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  getAllIdRequestsAdmin
+);
+
+/**
+ * @swagger
+ * /idcard/admin/requests/{requestId}:
+ *   get:
+ *     summary: Get a single paid ID request (Admin)
+ *     tags: [ID Card]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Paid ID request fetched successfully
+ *       400:
+ *         description: Invalid requestId or request is not paid
+ *       403:
+ *         description: Access denied for jurisdiction
+ *       404:
+ *         description: ID request not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get(
+  "/admin/requests/:requestId",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  getSinglePaidIdRequestAdmin
+);
+
+/**
+ * @swagger
+ * /idcard/admin/requests/{requestId}/approve-generate:
+ *   patch:
+ *     summary: Approve a paid ID request and generate QR
+ *     tags: [ID Card]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: ID approved and generated successfully
+ *       400:
+ *         description: Invalid request, not paid, or missing membership ID
+ *       403:
+ *         description: Access denied for jurisdiction
+ *       404:
+ *         description: ID request not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch(
+  "/admin/requests/:requestId/approve-generate",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  approveAndGenerateIdRequestAdmin
+);
+
+/**
+ * @swagger
+ * /idcard/admin/requests/{requestId}/decline:
+ *   patch:
+ *     summary: Decline an ID request (Admin)
+ *     tags: [ID Card]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: ID request declined successfully
+ *       400:
+ *         description: Invalid requestId
+ *       403:
+ *         description: Access denied for jurisdiction
+ *       404:
+ *         description: ID request not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch(
+  "/admin/requests/:requestId/decline",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  declineIdRequestAdmin
+);
+
+/**
+ * @swagger
+ * /idcard/verify-qr:
+ *   post:
+ *     summary: Verify ID QR code (Admin)
+ *     tags: [ID Card]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [payload]
+ *             properties:
+ *               payload:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: QR verified successfully
+ *       400:
+ *         description: Invalid QR format/tampered/inactive
+ *       404:
+ *         description: Invalid ID record
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  "/verify-qr",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  verifyQr
+);
+
+
 
 module.exports = router;
