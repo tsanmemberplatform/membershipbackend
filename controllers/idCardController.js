@@ -40,14 +40,23 @@ const getAdminScopeMatch = (adminUser) => {
 
   return {}; // nsAdmin + superAdmin
 };
-
-const UI_FULFILLMENT_MAP = {
-  pending: "Pending",
-  paid: "Pending",
-  generated: "Generated",
-  cancelled: "Cancelled",
-  failed: "Failed",
+const UI_FULFILLMENT_MAP = (value) => {
+  if (!value) return null;
+  const v = String(value).trim().toLowerCase();
+  if (v === "pending") return ["pending", "paid"];
+  if (v === "generated") return ["generated"];
+  if (v === "cancelled" || v === "canceled") return ["cancelled"];
+  if (v === "failed") return ["failed"];
+  return null;
 };
+const isWithinAdminJurisdiction = (admin, user) => {
+  if (!admin || !user) return false;
+  if (admin.role === "distAdmin") return admin.scoutDistrict && user.scoutDistrict && admin.scoutDistrict === user.scoutDistrict;
+  if (admin.role === "ssAdmin") return admin.stateScoutCouncil && user.stateScoutCouncil && admin.stateScoutCouncil === user.stateScoutCouncil;
+  if (admin.role === "nsAdmin" || admin.role === "superAdmin") return true;
+  return false;
+};
+
 
 
 exports.requestIdCard = async (req, res) => {
@@ -329,7 +338,7 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
     }
 
     if (fulfillmentStatus) {
-      const mapped = mapUiFulfillmentToDb(fulfillmentStatus);
+      const mapped = UI_FULFILLMENT_MAP[fulfillmentStatus];
       if (!mapped) {
         return res.status(400).json({ status: false, message: "Invalid fulfillmentStatus filter" });
       }

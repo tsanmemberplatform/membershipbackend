@@ -11,7 +11,7 @@ const {auth, authorizeRoles } = require('../middleware/authMiddleware');
 
 /**
  * @swagger
- * /id/request:
+ * /idcard/request:
  *   post:
  *     summary: Request an ID Card (Initialize payment)
  *     tags: [ID Card]
@@ -55,7 +55,7 @@ router.post("/request", auth, requestIdCard);
 
 /**
  * @swagger
- * /id/reset:
+ * /idcard/reset:
  *   post:
  *     summary: Reset ID Card request (DEV/TEST purpose)
  *     tags: [ID Card]
@@ -76,7 +76,7 @@ router.post("/reset", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin"
 
 /**
  * @swagger
- * /id/update:
+ * /idcard/update:
  *   patch:
  *     summary: Update ID Card status (Admin only)
  *     tags: [ID Card]
@@ -88,7 +88,7 @@ router.post("/reset", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin"
  *         application/json:
  *           example:
  *             userId: 64abc12345
- *             status: completed
+ *             status: generated/cancelled/failed
  *     responses:
  *       200:
  *         description: ID process updated successfully
@@ -105,7 +105,7 @@ router.patch("/update", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmi
 
 /**
  * @swagger
- * /id/status:
+ * /idcard/status:
  *   get:
  *     summary: Get logged-in user's ID Card status
  *     tags: [ID Card]

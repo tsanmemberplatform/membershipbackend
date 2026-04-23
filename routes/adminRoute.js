@@ -136,7 +136,7 @@ const { uploadGeneralFile } = require("../utils/multer");
  *         profilePic:
  *           type: string
  */
-router.patch('/status', auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), updateMemberStatus);
+router.patch('/status', auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), updateMemberStatus);
 
 /**
  * @swagger
@@ -374,7 +374,7 @@ router.post('/demote', auth, authorizeRoles('superAdmin', 'nsAdmin'), demoteRole
  *       500:
  *         description: Internal server error
  */
-router.get("/users", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), getAllUsers);
+router.get("/users", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getAllUsers);
 
 /**
  * @swagger
@@ -421,7 +421,7 @@ router.get("/users", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), g
  *       500:
  *         description: Internal server error
  */
-router.get("/users/status/:status", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), getUsersByStatus);
+router.get("/users/status/:status", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getUsersByStatus);
 
 /**
  * @swagger
@@ -475,7 +475,7 @@ router.get("/users/status/:status", auth, authorizeRoles("superAdmin", "nsAdmin"
  *       500:
  *         description: Internal server error
  */
-router.get("/users/stats", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), getUserRoleStats);
+router.get("/users/stats", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getUserRoleStats);
 /**
  * @swagger
  * /admin/reports:
@@ -627,7 +627,7 @@ router.get("/users/stats", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmi
  *       500:
  *         description: Internal server error.
  */
-router.get("/reports", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),getReportStatistics);
+router.get("/reports", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),getReportStatistics);
 
 /**
  * @swagger
@@ -764,7 +764,7 @@ router.get("/reports", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),
  *                   type: string
  *                   example: "Internal server error: <error message>"
  */
-router.post("/send-message", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), uploadGeneralFile.single("attachment"), sendMessageToScouts);
+router.post("/send-message", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), uploadGeneralFile.single("attachment"), sendMessageToScouts);
 
 /**
  * @swagger
@@ -806,7 +806,7 @@ router.post("/send-message", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAd
  *       500:
  *         description: Internal server error
  */
-router.get("/messages", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),getAllMessages);
+router.get("/messages", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),getAllMessages);
 
 /**
  * @swagger
@@ -859,7 +859,7 @@ router.get("/messages", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin")
  *       500:
  *         description: Internal server error
  */
-router.delete("/messages/:id", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), deleteMessage);
+router.delete("/messages/:id", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), deleteMessage);
 
 /**
  * @swagger
@@ -955,7 +955,7 @@ router.delete("/messages/:id", auth, authorizeRoles("superAdmin", "nsAdmin", "ss
  *               status: false
  *               message: "Server error"
  */
-router.get( "/auditTrails", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),getAllAuditTrails);
+router.get( "/auditTrails", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),getAllAuditTrails);
 
 /**
  * @swagger
@@ -1013,7 +1013,7 @@ router.get( "/auditTrails", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdm
  *               message: "Failed to export report statistics"
  *               error: "Error message details"
  */
-router.get("/reports/export/statistics",  auth,authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),exportReportStatistics);
+router.get("/reports/export/statistics",  auth,authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),exportReportStatistics);
 
 
 /**
@@ -1291,7 +1291,7 @@ router.post("/invite", auth, authorizeRoles("superAdmin", "nsAdmin"), inviteUser
  *               status: false
  *               message: Internal server error
  */
-router.get("/user/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin"), getUserWithAllDetails);
+router.get("/user/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin", "distAdmin"), getUserWithAllDetails);
 
 /**
  * @swagger
@@ -1420,7 +1420,7 @@ router.get("/user/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin")
  *               status: false
  *               message: "Internal server error: Database connection failed"
  */
-router.get("/events/manage", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),manageAllEvents);
+router.get("/events/manage", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),manageAllEvents);
 
 /**
  * @swagger
@@ -1696,7 +1696,7 @@ router.get("/manage-records", auth, manageAllRecords);
  *       500:
  *         description: Internal server error
  */
-router.get("/admins", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), getAllAdmins);
+router.get("/admins", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getAllAdmins);
 
 /**
  * @swagger
@@ -1750,7 +1750,7 @@ router.get("/admins", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), 
  *       500:
  *         description: Server error
  */
-router.patch("/adminEdit/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin"), adminEditUser);
+router.patch("/adminEdit/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin", "distAdmin"), adminEditUser);
 
 /**
  * @swagger
@@ -1934,6 +1934,6 @@ router.patch("/:id/reject", auth, authorizeRoles("superAdmin", "nsAdmin"),reject
  *       500:
  *         description: Internal server error
  */
-router.get("/records/stats", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), getAllRecordStats);
+router.get("/records/stats", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getAllRecordStats);
 
 module.exports = router;

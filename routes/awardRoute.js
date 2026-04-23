@@ -123,7 +123,7 @@ router.get("/user/:userId", auth, getUserAwards);
  *       200:
  *         description: List of all award progress records
  */
-router.get("/getAllAwards", auth, authorizeRoles("leader", "ssAdmin", "nsAdmin", "superAdmin"), getAllAwards);
+router.get("/getAllAwards", auth, authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"), getAllAwards);
 
 /**
  * @swagger
@@ -197,7 +197,7 @@ router.patch("/:id", auth, uploadGeneralFile.single("file"), updateAwardProgress
  *       500:
  *         description: Internal server error
  */
-router.get("/members/progress", auth, authorizeRoles("leader", "superAdmin", "nsAdmin", "ssAdmin"), getMembersProgress);
+router.get("/members/progress", auth, authorizeRoles("leader", "superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getMembersProgress);
 
 /**
  * @swagger
@@ -284,7 +284,7 @@ router.get("/members/progress", auth, authorizeRoles("leader", "superAdmin", "ns
  *                   example: Server error while deleting award progress.
  */
 
-router.delete("/:id", auth, authorizeRoles("member", "ssAdmin", "nsAdmin", "superAdmin"), deleteAwardProgress);
+router.delete("/:id", auth, authorizeRoles("member", "ssAdmin", "nsAdmin", "superAdmin", "distAdmin"), deleteAwardProgress);
 
 /**
  * @swagger
@@ -316,7 +316,7 @@ router.delete("/:id", auth, authorizeRoles("member", "ssAdmin", "nsAdmin", "supe
  *       500:
  *         description: Server error
  */
-router.get("/pending", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin"), getPendingAwards);
+router.get("/pending", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin", "distAdmin"), getPendingAwards);
 
 /**
  * @swagger
@@ -358,7 +358,7 @@ router.get("/pending", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin"),
  *       500:
  *         description: Server error
  */
-router.patch("/pending/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin"), updatePendingAward);
+router.patch("/pending/:id", auth, authorizeRoles("ssAdmin", "nsAdmin", "superAdmin", "distAdmin"), updatePendingAward);
 
 module.exports = router;
 

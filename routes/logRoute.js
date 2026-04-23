@@ -152,7 +152,7 @@ router.get("/my-logs", auth, getMyLogs);
  *         description: Forbidden
  */
 
-router.get("/", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "leader"), getAllLogs);
+router.get("/", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), getAllLogs);
 
 /**
  * @swagger

@@ -70,7 +70,7 @@ const { auth, authorizeRoles } = require("../middleware/authMiddleware");
 router.post(
   "/",
   auth,
-  authorizeRoles("superAdmin", "leader", "nsAdmin", "ssAdmin", "member"),
+  authorizeRoles("superAdmin", "leader", "nsAdmin", "ssAdmin", "member", "distAdmin"),
   uploadGeneralFile.single("photo"),
   createEvent
 );
@@ -97,7 +97,7 @@ router.post(
 router.patch(
   "/:id/approve",
   auth,
-  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),
+  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),
   approveEvent
 );
 
@@ -123,7 +123,7 @@ router.patch(
 router.patch(
   "/:id/reject",
   auth,
-  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),
+  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),
   rejectEvent
 );
 
@@ -191,7 +191,7 @@ router.patch(
  *       500:
  *         description: Internal server error
  */
-router.get("/", auth, authorizeRoles("member", "leader", "superAdmin", "nsAdmin", "ssAdmin"), getEvents);
+router.get("/", auth, authorizeRoles("member", "distAdmin", "superAdmin", "nsAdmin", "ssAdmin"), getEvents);
 
 /**
  * @swagger
@@ -312,7 +312,7 @@ router.get("/:id", auth, getEvent);
 router.patch(
   "/:id",
   auth,
-  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "member"),
+  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "member", "distAdmin"),
   uploadGeneralFile.single("photo"),
   updateEvent
 );
@@ -339,7 +339,7 @@ router.patch(
 router.delete(
   "/:id",
   auth,
-  authorizeRoles("superAdmin", "nsAdmin", "member"),
+  authorizeRoles("superAdmin", "nsAdmin", "member", "distAdmin"),
   deleteEvent
 );
 
@@ -398,7 +398,7 @@ router.delete(
 router.post(
   "/:id/register",
   auth,
-  authorizeRoles("member", "leader", "superAdmin", "nsAdmin", "ssAdmin"),
+  authorizeRoles("member", "distAdmin", "superAdmin", "nsAdmin", "ssAdmin"),
   registerForEvent
 );
 
@@ -468,7 +468,7 @@ router.post(
 router.get(
   "/:id/attendees",
   auth,
-  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"),
+  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"),
   getAttendees
 );
 
@@ -493,7 +493,7 @@ router.get(
 router.get(
   "/:id/attendees/export",
   auth,
-  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin" ),
+  authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin" ),
   exportAttendees
 );
 

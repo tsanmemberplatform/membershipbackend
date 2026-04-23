@@ -913,7 +913,7 @@ router.get("/scouts/state/:stateScoutCouncil/section/:section", auth, authorizeR
  *       500:
  *         description: Internal server error
  */
-router.delete("/delete/:id", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), deleteUserAndAssociations);
+router.delete("/delete/:id", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin", "distAdmin"), deleteUserAndAssociations);
 
 
 /**

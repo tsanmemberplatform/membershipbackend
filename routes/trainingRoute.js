@@ -242,9 +242,9 @@ router.get("/", auth, authorizeRoles("nsAdmin", "superAdmin"), getAllTrainings);
  *       500:
  *         description: Server error
  */
-router.put("/:id", auth, authorizeRoles("member",  "ssAdmin", "leader", "nsAdmin", "superAdmin"), updateTraining);
-router.delete("/:id", auth, authorizeRoles("member", "nsAdmin", "superAdmin"), deleteTraining);
-router.get("/:id", auth, getTrainingById)
+router.put("/:id", auth, authorizeRoles("member",  "ssAdmin", "distAdmin", "nsAdmin", "superAdmin"), updateTraining);
+router.delete("/:id", auth, authorizeRoles("member",  "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"), deleteTraining);
+router.get("/:id", auth, getTrainingById);
 
 /**
  * @swagger
@@ -288,6 +288,6 @@ router.get("/:id", auth, getTrainingById)
  *       500:
  *         description: Server error
  */
-router.put("/:id/verify", auth, authorizeRoles("nsAdmin", "ssAdmin", "superAdmin"), verifyTraining);
+router.put("/:id/verify", auth, authorizeRoles("nsAdmin", "ssAdmin", "distAdmin", "superAdmin"), verifyTraining);
 
 module.exports = router;

@@ -1234,7 +1234,7 @@ exports.getUserWithAllDetails = async (req, res) => {
       return res.status(404).json({ status: false, message: "User not found" });
 
     // Role-based access check
-    if (admin.role === "ssAdmin" && admin.state !== user.stateScoutCouncil) {
+    if (admin.role === "ssAdmin" && admin.stateScoutCouncil !== user.stateScoutCouncil) {
       return res
         .status(403)
         .json({ status: false, message: "Access denied: Different state" });
@@ -1703,7 +1703,7 @@ exports.searchEventsByTitle = async (req, res) => {
   try {
     const { title } = req.query;
 
-    const allowedRoles = ["superAdmin", "nsoAdmin", "sscAdmin", "ssAdmin"];
+    const allowedRoles = ["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"];
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         status: false,

@@ -66,7 +66,7 @@ const { auth, authorizeRoles } = require("../middleware/authMiddleware");
  *         description: Internal server error
  */
 // NOTE: Authenticated users can initialize their own payments.
-router.post("/initialize", auth, authorizeRoles("member", "leader", "ssAdmin", "nsAdmin", "superAdmin"), initializePayment );
+router.post("/initialize", auth, authorizeRoles("member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"), initializePayment );
 
 /**
  * @swagger
@@ -114,7 +114,7 @@ router.post("/initialize", auth, authorizeRoles("member", "leader", "ssAdmin", "
  *         description: Internal server error
  */
 // NOTE: Authenticated users verify their own payment; admins can verify any payment.
-router.get( "/verify/:reference", auth, authorizeRoles("member", "leader", "ssAdmin", "nsAdmin", "superAdmin"), verifyPayment );
+router.get( "/verify/:reference", auth, authorizeRoles("member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"), verifyPayment );
 
 /**
  * @swagger
@@ -150,7 +150,7 @@ router.get( "/verify/:reference", auth, authorizeRoles("member", "leader", "ssAd
  *         description: Internal server error
  */
 // NOTE: Authenticated users can fetch their own payment history.
-router.get( "/my-payments",  auth,  authorizeRoles("member", "leader", "ssAdmin", "nsAdmin", "superAdmin"), getMyPayments );
+router.get( "/my-payments",  auth,  authorizeRoles("member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"), getMyPayments );
 
 /**
  * @swagger
