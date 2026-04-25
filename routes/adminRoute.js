@@ -194,7 +194,7 @@ router.patch('/status', auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin",
  *       404:
  *         description: User not found
  */
-router.post('/promote', auth, authorizeRoles('superAdmin', 'nsAdmin'), promoteRole);
+router.post('/promote', auth, authorizeRoles('superAdmin', 'nsAdmin', 'member'), promoteRole);
 
 
 /**

@@ -226,17 +226,57 @@ exports.updateIdStatus = async (req, res) => {
   }
 };
 
+// exports.getMyIdStatus = async (req, res) => {
+//   try {
+//     const purchase = await IdPurchase.findOne({ user: req.user.id }).populate("payment");
+    
+//     return res.json({
+//       status: true,
+//       data: purchase,
+//     });
+//   } catch (err) {
+//     return res.status(500).json({ status: false, message: err.message });
+//   }
+// };
+
 exports.getMyIdStatus = async (req, res) => {
   try {
     const purchase = await IdPurchase.findOne({ user: req.user.id }).populate("payment");
+
+    if (!purchase) {
+      return res.status(200).json({
+        status: true,
+        data: null,
+        message: "No ID card request found",
+      });
+    }
+
+    const statusMap = {
+      pending: "Pending Admin Confirmation",
+      paid: "Pending Admin Confirmation",
+      generated: "Approved and Generated",
+      cancelled: "Declined",
+      failed: "Failed",
+    };
+
+    const rawStatus = purchase.status;
+    const displayStatus = statusMap[rawStatus] || "Pending";
+
     return res.json({
       status: true,
-      data: purchase,
+      data: {
+        ...purchase.toObject(),
+        rawStatus,
+        displayStatus,
+        paymentStatus: purchase.payment?.status || "pending",
+        adminConfirmed: rawStatus === "generated",
+      },
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 exports.verifyQr = async (req, res) => {
   try {

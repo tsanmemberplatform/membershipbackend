@@ -72,7 +72,7 @@ router.post("/request", auth, requestIdCard);
  *       500:
  *         description: Internal server error
  */
-router.post("/reset", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin" ), resetIdCardRequest);
+router.post("/reset", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin", "nsAdmin", "member" ), resetIdCardRequest);
 
 /**
  * @swagger

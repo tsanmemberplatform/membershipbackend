@@ -273,6 +273,7 @@ exports.verifyPayment = async (req, res) => {
         reference: payment.reference,
         paymentStatus: payment.status,
         paymentType: payment.paymentType,
+        
       },
     });
   } catch (error) {
