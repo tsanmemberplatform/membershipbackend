@@ -40,7 +40,7 @@ const getAdminScopeMatch = (adminUser) => {
 
   return {}; // nsAdmin + superAdmin
 };
-const UI_FULFILLMENT_MAP = (value) => {
+const mapUiFulfillmentToDb = (value) => {
   if (!value) return null;
   const v = String(value).trim().toLowerCase();
   if (v === "pending") return ["pending", "paid"];
@@ -49,6 +49,15 @@ const UI_FULFILLMENT_MAP = (value) => {
   if (v === "failed") return ["failed"];
   return null;
 };
+
+const FULFILLMENT_LABELS = {
+  pending: "Pending",
+  paid: "Pending",
+  generated: "Generated",
+  cancelled: "Cancelled",
+  failed: "Failed",
+};
+
 const isWithinAdminJurisdiction = (admin, user) => {
   if (!admin || !user) return false;
   if (admin.role === "distAdmin") return admin.scoutDistrict && user.scoutDistrict && admin.scoutDistrict === user.scoutDistrict;
@@ -226,22 +235,11 @@ exports.updateIdStatus = async (req, res) => {
   }
 };
 
-// exports.getMyIdStatus = async (req, res) => {
-//   try {
-//     const purchase = await IdPurchase.findOne({ user: req.user.id }).populate("payment");
-    
-//     return res.json({
-//       status: true,
-//       data: purchase,
-//     });
-//   } catch (err) {
-//     return res.status(500).json({ status: false, message: err.message });
-//   }
-// };
-
 exports.getMyIdStatus = async (req, res) => {
   try {
-    const purchase = await IdPurchase.findOne({ user: req.user.id }).populate("payment");
+    const purchase = await IdPurchase.findOne({ user: req.user.id })
+    .populate("payment")
+    .populate("user", "fullName gender membershipId section stateScoutCouncil scoutDistrict profilePic status");
 
     if (!purchase) {
       return res.status(200).json({
@@ -270,6 +268,19 @@ exports.getMyIdStatus = async (req, res) => {
         displayStatus,
         paymentStatus: purchase.payment?.status || "pending",
         adminConfirmed: rawStatus === "generated",
+        userDetails: purchase.user
+          ?{
+            id: purchase.user._id,
+            fullName: purchase.user.fullName,
+            gender: purchase.user.gender,
+            membershipId: purchase.user.membershipId,
+            section: purchase.user.section,
+            stateScoutCouncil: purchase.user.stateScoutCouncil,
+            scoutDistrict: purchase.user.scoutDistrict,
+            profilePic: purchase.user.profilePic,
+            status: purchase.user.status,
+            }
+          : null,
       },
     });
   } catch (err) {
@@ -378,7 +389,7 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
     }
 
     if (fulfillmentStatus) {
-      const mapped = UI_FULFILLMENT_MAP[fulfillmentStatus];
+      const mapped = mapUiFulfillmentToDb(fulfillmentStatus);
       if (!mapped) {
         return res.status(400).json({ status: false, message: "Invalid fulfillmentStatus filter" });
       }
@@ -468,7 +479,7 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
       amount: r.payment?.amount ?? null,
       paymentReference: r.payment?.reference || null,
       paymentStatus: r.payment?.status || "pending",
-      fulfillmentStatus: UI_FULFILLMENT_MAP[r.status] || "Pending",
+      fulfillmentStatus: FULFILLMENT_LABELS[r.status] || "Pending",
       rawStatus: r.status,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
@@ -520,7 +531,7 @@ exports.getSinglePaidIdRequestAdmin = async (req, res) => {
       status: true,
       data: {
         requestId: purchase._id,
-        fulfillmentStatus: UI_FULFILLMENT_MAP[purchase.status] || "Pending",
+        fulfillmentStatus: FULFILLMENT_LABELS[purchase.status] || "Pending",
         rawStatus: purchase.status,
         user: purchase.user,
         payment: purchase.payment,
@@ -577,6 +588,13 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
       isActive: true,
       lastScannedAt: purchase.qrCode?.lastScannedAt || null,
     };
+
+    purchase.adminConfirm = {
+      ...(purchase.adminConfirm || {}),
+      requestedBy: req.user._id,
+      usedAt: new Date(),
+    };
+
 
     await purchase.save();
 
