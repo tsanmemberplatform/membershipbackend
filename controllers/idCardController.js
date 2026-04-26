@@ -68,16 +68,34 @@ const isWithinAdminJurisdiction = (admin, user) => {
 
 
 exports.requestIdCard = async (req, res) => {
-  let payment;
-  let idPurchase;
+  let createdPayment = null;
+  let createdPurchase = null;
+
   try {
+    if (!process.env.KORA_BASE_URL) {
+      return res.status(500).json({
+        status: false,
+        message: "KORA_BASE_URL is not configured",
+      });
+    }
+
+    if (!process.env.KORA_SECRET_KEY) {
+      return res.status(500).json({
+        status: false,
+        message: "KORA_SECRET_KEY is not configured",
+      });
+    }
+
     const user = await userModel.findById(req.user.id);
-    if (!user) return res.status(404).json({ status: false, message: "User not found" });
+    if (!user)
+      return res.status(404).json({ status: false, message: "User not found" });
 
     const { notificationUrl, redirectUrl } = getPaymentUrls(req);
-
+    const amount = getIdCardPrice(user.section);
     if (user.idCard?.paid) {
-      return res.status(400).json({ status: false, message: "ID card already paid for" });
+      return res
+        .status(400)
+        .json({ status: false, message: "ID card already paid for" });
     }
 
     const existingRequest = await IdPurchase.findOne({
@@ -85,10 +103,39 @@ exports.requestIdCard = async (req, res) => {
       status: { $in: ["pending", "paid", "generated"] },
     }).populate("payment");
 
+    // helper to initialize provider
+    const initializeProvider = async (paymentDoc) => {
+      const gatewayResponse = await fetch(
+        `${process.env.KORA_BASE_URL}/api/v1/charges/initialize`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: paymentDoc.amount,
+            currency: paymentDoc.currency || "NGN",
+            reference: paymentDoc.reference,
+            customer: {
+              name: user.fullName,
+              email: user.email,
+            },
+            notification_url: notificationUrl,
+            redirect_url: redirectUrl,
+          }),
+        },
+      );
+
+      const gatewayData = await gatewayResponse.json();
+      return { gatewayResponse, gatewayData };
+    };
+
     if (existingRequest) {
       const payStatus = existingRequest.payment?.status || "pending"; // pending/successful/failed
       const reqStatus = existingRequest.status; // pending/paid/generated/cancelled/failed
-      // already fulfilled
+      
+      // generated already 
       if (reqStatus === "generated") {
         return res.status(400).json({
           status: false,
@@ -99,7 +146,8 @@ exports.requestIdCard = async (req, res) => {
           },
         });
       }
-      
+
+      // already paid, awaiting admin generation
       if (payStatus === "successful") {
         return res.status(200).json({
           status: true,
@@ -113,88 +161,102 @@ exports.requestIdCard = async (req, res) => {
         });
       }
 
-      // unpaid/failed -> reuse same reference
-      const reInit = await fetch(`${process.env.KORA_BASE_URL}/api/v1/charges/initialize`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: existingRequest.payment.amount,
-          currency: existingRequest.payment.currency || "NGN",
-          reference: existingRequest.payment.reference,
-          customer: { name: user.fullName, email: user.email },
-          notification_url: notificationUrl,
-          redirect_url: redirectUrl,
-        }),
+      // retry flow create fresh payment with fresh reference
+      const retryReference = `ID-${Date.now()}-${user._id}`;
+      const retryPayment = await Payment.create({
+        user: user._id,
+        amount, 
+        currency: existingRequest.payment.currency || "NGN",
+        paymentType: "id_card",
+        reference: retryReference,
       });
 
-      const reInitData = await reInit.json();
-      if (!reInit.ok || !reInitData?.data?.checkout_url) {
+      createdPayment = retryPayment;
+
+      //relink existing request to new payment
+      existingRequest.payment = retryPayment._id;
+      existingRequest.status = "pending";
+      await existingRequest.save();
+
+      const { gatewayResponse, gatewayData } = await initializeProvider(retryPayment);
+      
+      if (!gatewayResponse.ok || !gatewayData?.data?.checkout_url) {
+        retryPayment.status = "failed";
+        await retryPayment.save();
+
         return res.status(502).json({
           status: false,
           message: "Unable to initialize payment with provider",
-          providerResponse: reInitData,
+          providerResponse: gatewayData,
         });
       }
 
       return res.status(200).json({
         status: true,
-        message: "Existing ID request found. Continue payment.",
+        message: "Existing ID request found. Continue payment with new reference.",
         data: {
-          requestStatus: reqStatus,
-          paymentStatus: payStatus,
-          reference: existingRequest.payment.reference,
-          amount: existingRequest.payment.amount,
+          requestStatus: existingRequest.status,
+          paymentStatus: retryPayment.status,
+          reference: retryPayment.reference,
+          amount: retryPayment.amount,
           notificationUrl,
           redirectUrl,
-          paymentLink: reInitData.data.checkout_url,
+          paymentLink: gatewayData.data.checkout_url,
         },
       });
     }
 
-    const amount = getIdCardPrice(user.section);
+    // no active request, create new request
     const reference = `ID-${Date.now()}-${user._id}`;
 
-    const payment = await Payment.create({
+    createdPayment = await Payment.create({
       user: user._id,
       amount,
       currency: "NGN",
       paymentType: "id_card",
       reference,
+      status: "pending",
     });
 
-    const idPurchase = await IdPurchase.create({
+
+    createdPurchase = await IdPurchase.create({
       user: user._id,
       payment: payment._id,
+      status: "pending",
     });
 
-    const gatewayResponse = await fetch(
-      `${process.env.KORA_BASE_URL}/api/v1/charges/initialize`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: payment.amount,
-          currency: "NGN",
-          reference: payment.reference,
-          customer: {
-            name: user.fullName,
-            email: user.email,
+    const { gatewayResponse, gatewayData } = await (async () => {
+      const response = await fetch(
+        `${process.env.KORA_BASE_URL}/api/v1/charges/initialize`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
+            "Content-Type": "application/json",
           },
-          redirect_url: redirectUrl,
-        }),
-      }
-    );
+          body: JSON.stringify({
+            amount,
+            currency: "NGN",
+            reference: createdPayment.reference,
+            customer: {
+              name: user.fullName,
+              email: user.email,
+            },
+            notification_url: notificationUrl,
+            redirect_url: redirectUrl,
+          }),
+        },
+      );
 
-    const gatewayData = await gatewayResponse.json();
+      const data = await response.json();
+      return { gatewayResponse: response, gatewayData: data }; 
+    })();
+
     if (!gatewayResponse.ok || !gatewayData?.data?.checkout_url) {
-      await IdPurchase.findByIdAndDelete(idPurchase._id);
-      await Payment.findByIdAndDelete(payment._id);
+      createdPayment.status = "failed";
+      await createdPayment.save();
+
+      await IdPurchase.findByIdAndDelete(createdPurchase._id);
 
       return res.status(502).json({
         status: false,
@@ -214,12 +276,17 @@ exports.requestIdCard = async (req, res) => {
         paymentLink: gatewayData.data.checkout_url,
       },
     });
-  } catch (err) {
-    if (idPurchase?._id) await IdPurchase.findByIdAndDelete(idPurchase._id).catch(() => {});
-    if (payment?._id) await Payment.findByIdAndDelete(payment._id).catch(() => {});
+  }catch (err) {
+    if (createdPurchase?._id) {
+      await IdPurchase.findByIdAndDelete(createdPurchase._id).catch(() => {});
+    }
+    if (createdPayment?._id) {
+      await Payment.findByIdAndDelete(createdPayment._id).catch(() => {});
+    }
     return res.status(500).json({ status: false, message: err.message });
   }
 };
+
 
 exports.resetIdCardRequest = async (req, res) => {
   try {
