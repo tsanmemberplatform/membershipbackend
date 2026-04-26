@@ -67,11 +67,14 @@ const isWithinAdminJurisdiction = (admin, user) => {
 };
 
 
-
 exports.requestIdCard = async (req, res) => {
+  let payment;
+  let idPurchase;
   try {
     const user = await userModel.findById(req.user.id);
     if (!user) return res.status(404).json({ status: false, message: "User not found" });
+
+    const { notificationUrl, redirectUrl } = getPaymentUrls(req);
 
     if (user.idCard?.paid) {
       return res.status(400).json({ status: false, message: "ID card already paid for" });
@@ -83,23 +86,81 @@ exports.requestIdCard = async (req, res) => {
     }).populate("payment");
 
     if (existingRequest) {
-      return res.status(400).json({
-        status: false,
-        message: "You already have an active ID card request",
+      const payStatus = existingRequest.payment?.status || "pending"; // pending/successful/failed
+      const reqStatus = existingRequest.status; // pending/paid/generated/cancelled/failed
+      // already fulfilled
+      if (reqStatus === "generated") {
+        return res.status(400).json({
+          status: false,
+          message: "ID card already generated",
+          data: {
+            requestStatus: reqStatus,
+            reference: existingRequest.payment?.reference || null,
+          },
+        });
+      }
+      
+      if (payStatus === "successful") {
+        return res.status(200).json({
+          status: true,
+          message: "Payment already completed. Awaiting ID generation.",
+          data: {
+            requestStatus: reqStatus,
+            paymentStatus: payStatus,
+            reference: existingRequest.payment.reference,
+            amount: existingRequest.payment.amount,
+          },
+        });
+      }
+
+      // unpaid/failed -> reuse same reference
+      const reInit = await fetch(`${process.env.KORA_BASE_URL}/api/v1/charges/initialize`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: existingRequest.payment.amount,
+          currency: existingRequest.payment.currency || "NGN",
+          reference: existingRequest.payment.reference,
+          customer: { name: user.fullName, email: user.email },
+          notification_url: notificationUrl,
+          redirect_url: redirectUrl,
+        }),
+      });
+
+      const reInitData = await reInit.json();
+      if (!reInit.ok || !reInitData?.data?.checkout_url) {
+        return res.status(502).json({
+          status: false,
+          message: "Unable to initialize payment with provider",
+          providerResponse: reInitData,
+        });
+      }
+
+      return res.status(200).json({
+        status: true,
+        message: "Existing ID request found. Continue payment.",
         data: {
-          requestStatus: existingRequest.status,
-          reference: existingRequest?.payment?.reference || null,
+          requestStatus: reqStatus,
+          paymentStatus: payStatus,
+          reference: existingRequest.payment.reference,
+          amount: existingRequest.payment.amount,
+          notificationUrl,
+          redirectUrl,
+          paymentLink: reInitData.data.checkout_url,
         },
       });
     }
 
     const amount = getIdCardPrice(user.section);
     const reference = `ID-${Date.now()}-${user._id}`;
-    const { notificationUrl, redirectUrl } = getPaymentUrls(req);
 
     const payment = await Payment.create({
       user: user._id,
       amount,
+      currency: "NGN",
       paymentType: "id_card",
       reference,
     });
@@ -154,6 +215,8 @@ exports.requestIdCard = async (req, res) => {
       },
     });
   } catch (err) {
+    if (idPurchase?._id) await IdPurchase.findByIdAndDelete(idPurchase._id).catch(() => {});
+    if (payment?._id) await Payment.findByIdAndDelete(payment._id).catch(() => {});
     return res.status(500).json({ status: false, message: err.message });
   }
 };
@@ -595,7 +658,6 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
       usedAt: new Date(),
     };
 
-
     await purchase.save();
 
     return res.status(200).json({
@@ -631,6 +693,12 @@ exports.declineIdRequestAdmin = async (req, res) => {
     if (purchase.qrCode) {
       purchase.qrCode.isActive = false;
     }
+
+    purchase.adminConfirm = {
+      ...(purchase.adminConfirm || {}),
+      requestedBy: req.user._id,
+      usedAt: new Date(),
+    };
 
     await purchase.save();
 

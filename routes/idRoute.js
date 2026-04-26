@@ -101,7 +101,7 @@ router.post("/reset", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin"
  *       500:
  *         description: Internal server error
  */
-router.patch("/update", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin" ), updateIdStatus);
+router.patch("/update", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmin", "nsAdmin" ), updateIdStatus);
 
 /**
  * @swagger
