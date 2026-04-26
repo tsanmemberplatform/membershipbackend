@@ -221,7 +221,7 @@ exports.requestIdCard = async (req, res) => {
 
     createdPurchase = await IdPurchase.create({
       user: user._id,
-      payment: payment._id,
+      payment: createdPayment._id,
       status: "pending",
     });
 
