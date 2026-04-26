@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr } = require('../controllers/idCardController');
+const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr, getIdCardStats } = require('../controllers/idCardController');
 const {auth, authorizeRoles } = require('../middleware/authMiddleware');
 
 /**
@@ -317,6 +317,25 @@ router.post(
   verifyQr
 );
 
-
+/**
+ * @swagger
+ * /idcard/admin/stats:
+ *   get:
+ *     summary: Get ID card statistics (Admin)
+ *     tags: [ID Card]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistics fetched successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get(
+  "/admin/stats",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  getIdCardStats
+);
 
 module.exports = router;

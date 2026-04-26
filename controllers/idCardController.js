@@ -778,3 +778,55 @@ exports.declineIdRequestAdmin = async (req, res) => {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
+
+exports.getIdCardStats = async (req, res) => {
+  try {
+    const admin = req.user;
+    const matchStage = {};
+
+    if (admin.role === "distAdmin") {
+      if (!admin.scoutDistrict) {
+        return res.status(400).json({ status: false, message: "distAdmin has no scoutDistrict assigned" });
+      }
+      matchStage["user.scoutDistrict"] = admin.scoutDistrict;
+    } else if (admin.role === "ssAdmin") {
+      if (!admin.stateScoutCouncil) {
+        return res.status(400).json({ status: false, message: "ssAdmin has no stateScoutCouncil assigned" });
+      }
+      matchStage["user.stateScoutCouncil"] = admin.stateScoutCouncil;
+    }
+
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ];
+
+    const stats = await IdPurchase.aggregate(pipeline);
+    const formattedStats = stats.reduce((acc, curr) => {
+      acc[curr._id] = curr.count;
+      return acc;
+    }, {});
+
+    return res.status(200).json({
+      status: true,
+      message: "ID statistics fetched successfully",
+      data: formattedStats,
+    });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
