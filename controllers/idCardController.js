@@ -23,6 +23,48 @@ const buildQrPayload = ({ membershipId, userId, purchaseId }) => {
 
 const ADMIN_ROLES = ["distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
 
+const generateSixDigitSerial = async () => {
+  const [lastSerialDoc] = await userModel.aggregate([
+    {
+      $match: {
+        "idCard.serialNumber": { $type: "string", $regex: "^[0-9]+$" },
+      },
+    },
+    {
+      $project: {
+        serialAsNumber: { $toLong: "$idCard.serialNumber" },
+      },
+    },
+    { $sort: { serialAsNumber: -1 } },
+    { $limit: 1 },
+  ]);
+
+  const SIX_MIN = 100000;
+  const SIX_MAX = 999999;
+  const SEVEN_MIN = 1000000;
+  const SEVEN_MAX = 9999999;
+
+  const last = lastSerialDoc?.serialAsNumber ?? (SIX_MIN - 1);
+  let next = last + 1;
+
+  if (next < SIX_MIN) next = SIX_MIN;
+  if (next > SIX_MAX && next < SEVEN_MIN) next = SEVEN_MIN;
+
+  if (next > SEVEN_MAX) {
+    throw new Error("ID card serial number limit exceeded");
+  }
+
+  const candidate = String(next);
+  const exists = await userModel.exists({ "idCard.serialNumber": candidate });
+
+  if (exists) {
+    return generateSixDigitSerial();
+  }
+
+  return candidate;
+};
+
+
 const getAdminScopeMatch = (adminUser) => {
   if (adminUser.role === "distAdmin") {
     if (!adminUser.scoutDistrict) {
@@ -318,31 +360,90 @@ exports.resetIdCardRequest = async (req, res) => {
   }
 };
 
+// exports.updateIdStatus = async (req, res) => {
+//   try {
+//     const { userId, status } = req.body;
+//     const purchase = await IdPurchase.findOne({ user: userId });
+
+//     if (!purchase) {
+//       return res.status(404).json({ status: false, message: "No ID request found" });
+//     }
+
+//     purchase.status = status;
+//     await purchase.save();
+
+//     if (status === "generated") {
+//       const user = await userModel.findById(userId);
+//       if (!user?.membershipId) {
+//         return res
+//           .status(400)
+//           .json({ status: false, message: "Users must verify their account before requesting an ID card." });
+//       }
+
+//       const payload = buildQrPayload({
+//         membershipId: user.membershipId,
+//         userId: user._id.toString(),
+//         purchaseId: purchase._id.toString(),
+//       });
+//       const imageDataUrl = await qrcode.toDataURL(payload);
+
+//       purchase.qrCode = {
+//         payload,
+//         imageDataUrl,
+//         generatedAt: new Date(),
+//         isActive: true,
+//         lastScannedAt: null,
+//       };
+//       await purchase.save();
+//     }
+
+//     return res.json({
+//       status: true,
+//       message: "ID process updated",
+//       data: purchase,
+//     });
+//   } catch (err) {
+//     return res.status(500).json({ status: false, message: err.message });
+//   }
+// };
+
 exports.updateIdStatus = async (req, res) => {
   try {
     const { userId, status } = req.body;
-    const purchase = await IdPurchase.findOne({ user: userId });
+    const allowed = ["pending", "paid", "generated", "cancelled", "failed"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ status: false, message: "Invalid status value" });
+    }
+
+    const purchase = await IdPurchase.findOne({ user: userId })
+      .populate("user")
+      .populate("payment");
 
     if (!purchase) {
       return res.status(404).json({ status: false, message: "No ID request found" });
     }
 
-    purchase.status = status;
-    await purchase.save();
-
     if (status === "generated") {
-      const user = await userModel.findById(userId);
-      if (!user?.membershipId) {
-        return res
-          .status(400)
-          .json({ status: false, message: "Users must verify their account before requesting an ID card." });
+      if (purchase.payment?.status !== "successful") {
+        return res.status(400).json({
+          status: false,
+          message: "Cannot generate ID before successful payment",
+        });
+      }
+
+      if (!purchase.user?.membershipId) {
+        return res.status(400).json({
+          status: false,
+          message: "Users must verify their account before requesting an ID card.",
+        });
       }
 
       const payload = buildQrPayload({
-        membershipId: user.membershipId,
-        userId: user._id.toString(),
+        membershipId: purchase.user.membershipId,
+        userId: purchase.user._id.toString(),
         purchaseId: purchase._id.toString(),
       });
+
       const imageDataUrl = await qrcode.toDataURL(payload);
 
       purchase.qrCode = {
@@ -350,10 +451,43 @@ exports.updateIdStatus = async (req, res) => {
         imageDataUrl,
         generatedAt: new Date(),
         isActive: true,
-        lastScannedAt: null,
+        lastScannedAt: purchase.qrCode?.lastScannedAt || null,
       };
-      await purchase.save();
+
+      purchase.adminConfirm = {
+        ...(purchase.adminConfirm || {}),
+        requestedBy: req.user._id,
+        usedAt: new Date(),
+      };
+
+      purchase.user.idCard = purchase.user.idCard || {};
+      if (!purchase.user.idCard.serialNumber) {
+        purchase.user.idCard.serialNumber = await generateAdaptiveSerialNumber();
+      }
+
+      const issuedAt = new Date();
+      const expiresAt = new Date(issuedAt);
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+      purchase.user.idCard.issued = true;
+      purchase.user.idCard.issuedAt = issuedAt;
+      purchase.user.idCard.expiresAt = expiresAt;
+
+      await purchase.user.save();
     }
+
+    if (status === "cancelled" || status === "failed") {
+      if (purchase.qrCode) purchase.qrCode.isActive = false;
+
+      purchase.adminConfirm = {
+        ...(purchase.adminConfirm || {}),
+        requestedBy: req.user._id,
+        usedAt: new Date(),
+      };
+    }
+
+    purchase.status = status;
+    await purchase.save();
 
     return res.json({
       status: true,
@@ -365,11 +499,12 @@ exports.updateIdStatus = async (req, res) => {
   }
 };
 
+
 exports.getMyIdStatus = async (req, res) => {
   try {
     const purchase = await IdPurchase.findOne({ user: req.user.id })
     .populate("payment")
-    .populate("user", "fullName gender membershipId section stateScoutCouncil scoutDistrict profilePic status");
+    .populate("user", "fullName gender membershipId section stateScoutCouncil scoutDistrict profilePic status idCard");
 
     if (!purchase) {
       return res.status(200).json({
@@ -409,6 +544,10 @@ exports.getMyIdStatus = async (req, res) => {
             scoutDistrict: purchase.user.scoutDistrict,
             profilePic: purchase.user.profilePic,
             status: purchase.user.status,
+            serialNumber: purchase.user.idCard?.serialNumber || null,
+            issuedAt: purchase.user.idCard?.issuedAt || null,
+            expiresAt: purchase.user.idCard?.expiresAt || null,
+
             }
           : null,
       },
@@ -417,7 +556,6 @@ exports.getMyIdStatus = async (req, res) => {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
-
 
 exports.verifyQr = async (req, res) => {
   try {
@@ -679,7 +817,9 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
   try {
     const { requestId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(requestId)) {
-      return res.status(400).json({ status: false, message: "Invalid requestId" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid requestId" });
     }
 
     const purchase = await IdPurchase.findById(requestId)
@@ -687,19 +827,33 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
       .populate("payment");
 
     if (!purchase) {
-      return res.status(404).json({ status: false, message: "ID request not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "ID request not found" });
     }
 
     if (!isWithinAdminJurisdiction(req.user, purchase.user)) {
-      return res.status(403).json({ status: false, message: "Access denied for this jurisdiction" });
+      return res
+        .status(403)
+        .json({
+          status: false,
+          message: "Access denied for this jurisdiction",
+        });
     }
 
     if (purchase.payment?.status !== "successful") {
-      return res.status(400).json({ status: false, message: "Cannot generate ID before successful payment" });
+      return res
+        .status(400)
+        .json({
+          status: false,
+          message: "Cannot generate ID before successful payment",
+        });
     }
 
     if (!purchase.user?.membershipId) {
-      return res.status(400).json({ status: false, message: "User has no membershipId" });
+      return res
+        .status(400)
+        .json({ status: false, message: "User has no membershipId" });
     }
 
     const payload = buildQrPayload({
@@ -724,6 +878,24 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
       requestedBy: req.user._id,
       usedAt: new Date(),
     };
+
+    if (!purchase.user.idCard?.serialNumber) {
+      purchase.user.idCard = purchase.user.idCard || {};
+      purchase.user.idCard.serialNumber = await generateSixDigitSerial();
+    }
+    purchase.user.idCard.issued = true;
+
+    const issuedAt = new Date();
+    const expiresAt = new Date(issuedAt);
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+    // Save on user idCard profile
+    purchase.user.idCard = purchase.user.idCard || {};
+    purchase.user.idCard.issued = true;
+    purchase.user.idCard.issuedAt = issuedAt;
+    purchase.user.idCard.expiresAt = expiresAt;
+
+    await purchase.user.save();
 
     await purchase.save();
 
