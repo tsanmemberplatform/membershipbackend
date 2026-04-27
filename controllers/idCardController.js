@@ -24,30 +24,32 @@ const buildQrPayload = ({ membershipId, userId, purchaseId }) => {
 const ADMIN_ROLES = ["distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
 
 const generateSerialNumber = async () => {
-  const MAX_RETRIES = 10;
+  const MAX_RETRIES = 20;
 
   const generateRandom = (min, max) =>
     Math.floor(Math.random() * (max - min + 1)) + min;
 
-  const SIX_MIN = 100000;
-  const SIX_MAX = 999999;
+  // 9-digit range (100,000,000 to 999,999,999)
+  const NINE_MIN = 100000000;
+  const NINE_MAX = 999999999;
 
-  const SEVEN_MIN = 1000000;
-  const SEVEN_MAX = 9999999;
+  // 10-digit range
+  const TEN_MIN = 1000000000;
+  const TEN_MAX = 9999999999;
 
-  // Check if 6-digit space is exhausted
-  const sixCount = await userModel.countDocuments({
-    "idCard.serialNumber": { $regex: "^[0-9]{6}$" },
-  });
+  // 1. Check capacity (9-digit space is ~900 million)
+ 
+  const totalUsers = await userModel.countDocuments();
+  const useTenDigits = totalUsers >= (NINE_MAX - NINE_MIN);
 
-  const useSevenDigits = sixCount >= (SIX_MAX - SIX_MIN + 1);
-
-  const min = useSevenDigits ? SEVEN_MIN : SIX_MIN;
-  const max = useSevenDigits ? SEVEN_MAX : SIX_MAX;
+  const min = useTenDigits ? TEN_MIN : NINE_MIN;
+  const max = useTenDigits ? TEN_MAX : NINE_MAX;
 
   for (let i = 0; i < MAX_RETRIES; i++) {
+    // 2. Generate based on the dynamic min/max
     const candidate = String(generateRandom(min, max));
 
+    // 3. Check uniqueness
     const exists = await userModel.exists({
       "idCard.serialNumber": candidate,
     });
@@ -57,8 +59,9 @@ const generateSerialNumber = async () => {
     }
   }
 
-  throw new Error("Unable to generate unique serial number, try again");
+  throw new Error("Collision limit reached. Increase MAX_RETRIES or check range.");
 };
+
 
 
 const getAdminScopeMatch = (adminUser) => {
@@ -457,7 +460,7 @@ exports.updateIdStatus = async (req, res) => {
 
       purchase.user.idCard = purchase.user.idCard || {};
       if (!purchase.user.idCard.serialNumber) {
-        purchase.user.idCard.serialNumber = await generateAdaptiveSerialNumber();
+        purchase.user.idCard.serialNumber = await generateSerialNumber();
       }
 
       const issuedAt = new Date();
@@ -772,7 +775,7 @@ exports.getSinglePaidIdRequestAdmin = async (req, res) => {
     }
 
     const purchase = await IdPurchase.findById(requestId)
-      .populate("user", "fullName membershipId section scoutDistrict stateScoutCouncil status")
+      .populate("user", "fullName gender membershipId section scoutDistrict stateScoutCouncil profilePic status idCard")
       .populate("payment");
 
     if (!purchase) {
@@ -790,19 +793,44 @@ exports.getSinglePaidIdRequestAdmin = async (req, res) => {
       });
     }
 
-    return res.status(200).json({
-      status: true,
-      data: {
-        requestId: purchase._id,
-        fulfillmentStatus: FULFILLMENT_LABELS[purchase.status] || "Pending",
-        rawStatus: purchase.status,
-        user: purchase.user,
-        payment: purchase.payment,
-        qrCode: purchase.qrCode,
-        createdAt: purchase.createdAt,
-        updatedAt: purchase.updatedAt,
-      },
-    });
+    const statusMap = {
+  pending: "Pending Admin Confirmation",
+  paid: "Pending Admin Confirmation",
+  generated: "Approved and Generated",
+  cancelled: "Declined",
+  failed: "Failed",
+};
+
+const rawStatus = purchase.status;
+const displayStatus = statusMap[rawStatus] || "Pending";
+
+return res.json({
+  status: true,
+  data: {
+    ...purchase.toObject(),
+    rawStatus,
+    displayStatus,
+    paymentStatus: purchase.payment?.status || "pending",
+    adminConfirmed: rawStatus === "generated",
+    userDetails: purchase.user
+      ? {
+          id: purchase.user._id,
+          fullName: purchase.user.fullName,
+          gender: purchase.user.gender,
+          membershipId: purchase.user.membershipId,
+          section: purchase.user.section,
+          stateScoutCouncil: purchase.user.stateScoutCouncil,
+          scoutDistrict: purchase.user.scoutDistrict,
+          profilePic: purchase.user.profilePic,
+          status: purchase.user.status,
+          serialNumber: purchase.user.idCard?.serialNumber || null,
+          issuedAt: purchase.user.idCard?.issuedAt || null,
+          expiresAt: purchase.user.idCard?.expiresAt || null,
+        }
+      : null,
+  },
+});
+
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
