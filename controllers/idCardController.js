@@ -23,45 +23,41 @@ const buildQrPayload = ({ membershipId, userId, purchaseId }) => {
 
 const ADMIN_ROLES = ["distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
 
-const generateSixDigitSerial = async () => {
-  const [lastSerialDoc] = await userModel.aggregate([
-    {
-      $match: {
-        "idCard.serialNumber": { $type: "string", $regex: "^[0-9]+$" },
-      },
-    },
-    {
-      $project: {
-        serialAsNumber: { $toLong: "$idCard.serialNumber" },
-      },
-    },
-    { $sort: { serialAsNumber: -1 } },
-    { $limit: 1 },
-  ]);
+const generateSerialNumber = async () => {
+  const MAX_RETRIES = 10;
+
+  const generateRandom = (min, max) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
 
   const SIX_MIN = 100000;
   const SIX_MAX = 999999;
+
   const SEVEN_MIN = 1000000;
   const SEVEN_MAX = 9999999;
 
-  const last = lastSerialDoc?.serialAsNumber ?? (SIX_MIN - 1);
-  let next = last + 1;
+  // Check if 6-digit space is exhausted
+  const sixCount = await userModel.countDocuments({
+    "idCard.serialNumber": { $regex: "^[0-9]{6}$" },
+  });
 
-  if (next < SIX_MIN) next = SIX_MIN;
-  if (next > SIX_MAX && next < SEVEN_MIN) next = SEVEN_MIN;
+  const useSevenDigits = sixCount >= (SIX_MAX - SIX_MIN + 1);
 
-  if (next > SEVEN_MAX) {
-    throw new Error("ID card serial number limit exceeded");
+  const min = useSevenDigits ? SEVEN_MIN : SIX_MIN;
+  const max = useSevenDigits ? SEVEN_MAX : SIX_MAX;
+
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    const candidate = String(generateRandom(min, max));
+
+    const exists = await userModel.exists({
+      "idCard.serialNumber": candidate,
+    });
+
+    if (!exists) {
+      return candidate;
+    }
   }
 
-  const candidate = String(next);
-  const exists = await userModel.exists({ "idCard.serialNumber": candidate });
-
-  if (exists) {
-    return generateSixDigitSerial();
-  }
-
-  return candidate;
+  throw new Error("Unable to generate unique serial number, try again");
 };
 
 
