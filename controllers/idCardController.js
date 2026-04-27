@@ -325,7 +325,6 @@ exports.requestIdCard = async (req, res) => {
   }
 };
 
-
 exports.resetIdCardRequest = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -877,7 +876,7 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
 
     if (!purchase.user.idCard?.serialNumber) {
       purchase.user.idCard = purchase.user.idCard || {};
-      purchase.user.idCard.serialNumber = await generateSixDigitSerial();
+      purchase.user.idCard.serialNumber = await generateSerialNumber();
     }
     purchase.user.idCard.issued = true;
 
