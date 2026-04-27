@@ -782,22 +782,27 @@ exports.declineIdRequestAdmin = async (req, res) => {
 exports.getIdCardStats = async (req, res) => {
   try {
     const admin = req.user;
-    const matchStage = {};
+    const userMatch = {};
 
     if (admin.role === "distAdmin") {
       if (!admin.scoutDistrict) {
-        return res.status(400).json({ status: false, message: "distAdmin has no scoutDistrict assigned" });
+        return res.status(400).json({
+          status: false,
+          message: "distAdmin has no scoutDistrict assigned",
+        });
       }
-      matchStage["user.scoutDistrict"] = admin.scoutDistrict;
+      userMatch["user.scoutDistrict"] = admin.scoutDistrict;
     } else if (admin.role === "ssAdmin") {
       if (!admin.stateScoutCouncil) {
-        return res.status(400).json({ status: false, message: "ssAdmin has no stateScoutCouncil assigned" });
+        return res.status(400).json({
+          status: false,
+          message: "ssAdmin has no stateScoutCouncil assigned",
+        });
       }
-      matchStage["user.stateScoutCouncil"] = admin.stateScoutCouncil;
+      userMatch["user.stateScoutCouncil"] = admin.stateScoutCouncil;
     }
 
     const pipeline = [
-      { $match: matchStage },
       {
         $lookup: {
           from: "users",
@@ -807,24 +812,31 @@ exports.getIdCardStats = async (req, res) => {
         },
       },
       { $unwind: "$user" },
+      ...(Object.keys(userMatch).length ? [{ $match: userMatch }] : []),
       {
         $group: {
-          _id: "$status",
-          count: { $sum: 1 },
+          _id: null,
+          totalRequests: { $sum: 1 },
+          totalPending: {
+            $sum: { $cond: [{ $in: ["$status", ["pending", "paid"]] }, 1, 0] },
+          },
+          totalGenerated: {
+            $sum: { $cond: [{ $eq: ["$status", "generated"] }, 1, 0] },
+          },
         },
       },
     ];
 
-    const stats = await IdPurchase.aggregate(pipeline);
-    const formattedStats = stats.reduce((acc, curr) => {
-      acc[curr._id] = curr.count;
-      return acc;
-    }, {});
+    const [stats] = await IdPurchase.aggregate(pipeline);
 
     return res.status(200).json({
       status: true,
       message: "ID statistics fetched successfully",
-      data: formattedStats,
+      data: {
+        totalRequests: stats?.totalRequests || 0,
+        totalPending: stats?.totalPending || 0,
+        totalGenerated: stats?.totalGenerated || 0,
+      },
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
