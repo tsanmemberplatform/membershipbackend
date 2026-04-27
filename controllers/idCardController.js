@@ -332,78 +332,46 @@ exports.resetIdCardRequest = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 1. Find the ID Purchase record
-    const idPurchase = await IdPurchase.findOne({ user: userId });
+    // 1) Find ALL ID purchases for this user (not just one)
+    const idPurchases = await IdPurchase.find({ user: userId }).select("_id payment");
 
-    if (idPurchase) {
-      // 2. Delete the associated Payment if it exists
-      if (idPurchase.payment) {
-        await Payment.findByIdAndDelete(idPurchase.payment);
-      }
-      // 3. Delete the ID Purchase record
-      await IdPurchase.findByIdAndDelete(idPurchase._id);
+    // 2) Delete linked payments
+    const paymentIds = idPurchases
+      .map((p) => p.payment)
+      .filter(Boolean);
+
+    if (paymentIds.length > 0) {
+      await Payment.deleteMany({ _id: { $in: paymentIds } });
     }
 
-    // 4. Reset the user's paid status in the database
+    // 3) Delete all ID purchase records
+    if (idPurchases.length > 0) {
+      const purchaseIds = idPurchases.map((p) => p._id);
+      await IdPurchase.deleteMany({ _id: { $in: purchaseIds } });
+    }
+
+    // 4) Reset all ID-card-related user fields
     await userModel.findByIdAndUpdate(userId, {
-      $set: { "idCard.paid": false }
+      $set: {
+        "idCard.paid": false,
+        "idCard.issued": false,
+        "idCard.paidAt": null,
+        "idCard.serialNumber": null,
+        "idCard.issuedAt": null,
+        "idCard.expiresAt": null,
+      },
     });
 
     return res.status(200).json({
       status: true,
-      message: "Test cleanup successful: ID card request and payment records deleted, user status reset.",
+      message:
+        "Test cleanup successful: all ID requests/payments removed and user ID card fields reset.",
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
 };
 
-// exports.updateIdStatus = async (req, res) => {
-//   try {
-//     const { userId, status } = req.body;
-//     const purchase = await IdPurchase.findOne({ user: userId });
-
-//     if (!purchase) {
-//       return res.status(404).json({ status: false, message: "No ID request found" });
-//     }
-
-//     purchase.status = status;
-//     await purchase.save();
-
-//     if (status === "generated") {
-//       const user = await userModel.findById(userId);
-//       if (!user?.membershipId) {
-//         return res
-//           .status(400)
-//           .json({ status: false, message: "Users must verify their account before requesting an ID card." });
-//       }
-
-//       const payload = buildQrPayload({
-//         membershipId: user.membershipId,
-//         userId: user._id.toString(),
-//         purchaseId: purchase._id.toString(),
-//       });
-//       const imageDataUrl = await qrcode.toDataURL(payload);
-
-//       purchase.qrCode = {
-//         payload,
-//         imageDataUrl,
-//         generatedAt: new Date(),
-//         isActive: true,
-//         lastScannedAt: null,
-//       };
-//       await purchase.save();
-//     }
-
-//     return res.json({
-//       status: true,
-//       message: "ID process updated",
-//       data: purchase,
-//     });
-//   } catch (err) {
-//     return res.status(500).json({ status: false, message: err.message });
-//   }
-// };
 
 exports.updateIdStatus = async (req, res) => {
   try {
