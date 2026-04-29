@@ -45,7 +45,7 @@ const mongoose = require('mongoose');
         paid: { type: Boolean, default: false },
         issued: { type: Boolean, default: false },
         paidAt: { type: Date },
-        serialNumber: { type: String, default: null, sparse: true },
+        serialNumber: { type: String, unique: true, sparse: true },
         issuedAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
 
