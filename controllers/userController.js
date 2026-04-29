@@ -72,7 +72,8 @@ const getSectionFromAge = (age) => {
   if (age <= 10) return "Cub";
   if (age <= 15) return "Scout";
   if (age <= 20) return "Venturer";
-  if (age <= 24) return "Rover"; // change to <=25 if you want Rover to include 25
+  if (age <= 26) return "Rover"; // change to <=25 if you want Rover to include 25
+  return "Volunteers";
 };
 
 
