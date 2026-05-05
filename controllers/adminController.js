@@ -27,7 +27,14 @@ exports.promoteRole = async (req, res) => {
         .json({ status: false, message: "Email and newRole are required" });
     }
 
-    const validRoles = ["member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
+    const validRoles = [
+      "member",
+      "leader",
+      "distAdmin",
+      "ssAdmin",
+      "nsAdmin",
+      "superAdmin",
+    ];
     if (!validRoles.includes(newRole)) {
       return res.status(400).json({ status: false, message: "Invalid role" });
     }
@@ -39,6 +46,25 @@ exports.promoteRole = async (req, res) => {
       return res.status(404).json({ status: false, message: "User not found" });
     }
 
+    const promotionRules = {
+      distAdmin: {
+        canPromoteFrom: ["member"],
+        canPromoteTo: ["leader"],
+      },
+      ssAdmin: {
+        canPromoteFrom: ["member", "leader"],
+        canPromoteTo: ["leader", "distAdmin"],
+      },
+      nsAdmin: {
+        canPromoteFrom: ["member", "leader", "distAdmin"],
+        canPromoteTo: ["leader", "distAdmin", "ssAdmin"],
+      },
+      superAdmin: {
+        canPromoteFrom: validRoles,
+        canPromoteTo: validRoles,
+      },
+    };
+
     if (user.role === newRole) {
       return res.status(400).json({
         status: false,
@@ -47,29 +73,44 @@ exports.promoteRole = async (req, res) => {
     }
     // 🔒 Permission Logic
     const currentUserRole = req.user.role;
+    const rules = promotionRules[currentUserRole];
 
-    if (currentUserRole === "nsAdmin") {
-      // nsAdmin cannot promote anyone to superAdmin
-      if (newRole === "superAdmin") {
-        return res.status(403).json({
-          status: false,
-          message: "nsAdmin cannot promote a user to superAdmin role",
-        });
-      }
-
-      // nsAdmin can only promote members
-      if (user.role !== "member") {
-        return res.status(403).json({
-          status: false,
-          message: "nsAdmin can only promote members",
-        });
-      }
+    if (!rules) {
+      return res.status(403).json({
+        status: false,
+        message: "You are not allowed to promote users",
+      });
     }
-    // superAdmin can promote anyone (no restriction)
+
+    // ❌ cannot promote to same role as yourself
+    if (newRole === currentUserRole) {
+      return res.status(403).json({
+        status: false,
+        message: `You cannot assign the role ${newRole}`,
+      });
+    }
+
+    // ❌ check allowed source role
+    if (!rules.canPromoteFrom.includes(user.role)) {
+      return res.status(403).json({
+        status: false,
+        message: `You cannot promote a ${user.role}`,
+      });
+    }
+
+    // ❌ check allowed target role
+    if (!rules.canPromoteTo.includes(newRole)) {
+      return res.status(403).json({
+        status: false,
+        message: `You cannot promote to ${newRole}`,
+      });
+    }
 
     // Map for readable role names
     const roleDisplayMap = {
       member: "Member",
+      leader: "Scout Leader",
+      distAdmin: "District Admin",
       ssAdmin: "State Scout Admin",
       nsAdmin: "National Scout Admin",
       superAdmin: "Super Admin",
@@ -82,7 +123,7 @@ exports.promoteRole = async (req, res) => {
     // ✅ Audit trail logging
     await auditTrailModel.create({
       userId: user._id,
-      field: "role",
+      field: `${user.fullName} promoted to ${newRole}`,
       oldValue: displayOldRole,
       newValue: displayNewRole,
       changedBy: req.user.fullName,
@@ -124,10 +165,49 @@ exports.demoteRole = async (req, res) => {
         .json({ status: false, message: "email and newRole are required" });
     }
 
-    const validRoles = ["member", "ssAdmin", "nsAdmin", "superAdmin"];
+    const validRoles = [
+      "member",
+      "leader",
+      "distAdmin",
+      "ssAdmin",
+      "nsAdmin",
+      "superAdmin",
+    ];
     if (!validRoles.includes(newRole)) {
       return res.status(400).json({ status: false, message: "Invalid role" });
     }
+    const demotionRules = {
+      distAdmin: {
+        canDemoteFrom: ["leader"],
+        canDemoteTo: ["member"],
+      },
+      ssAdmin: {
+        canDemoteFrom: ["distAdmin", "leader"],
+        canDemoteTo: ["leader", "member"],
+      },
+      nsAdmin: {
+        canDemoteFrom: ["ssAdmin", "distAdmin", "leader"],
+        canDemoteTo: ["distAdmin", "leader", "member"],
+      },
+      superAdmin: {
+        canDemoteFrom: [
+          "member",
+          "leader",
+          "distAdmin",
+          "ssAdmin",
+          "nsAdmin",
+          "superAdmin",
+        ],
+        canDemoteTo: [
+          "member",
+          "leader",
+          "distAdmin",
+          "ssAdmin",
+          "nsAdmin",
+          "superAdmin",
+        ],
+      },
+    };
 
     const user = await userModel
       .findOne({ email: email.toLowerCase() })
@@ -144,27 +224,44 @@ exports.demoteRole = async (req, res) => {
     }
     // 🔒 Permission Logic
     const currentUserRole = req.user.role;
+    const rules = demotionRules[currentUserRole];
 
-    if (currentUserRole === "nsAdmin") {
-      // nsAdmin cannot demote anyone to superAdmin
-      if (newRole === "superAdmin") {
-        return res.status(403).json({
-          status: false,
-          message: "nsAdmin cannot assign the superAdmin role",
-        });
-      }
-
-      // nsAdmin can only demote members or lower admins
-      if (user.role === "superAdmin") {
-        return res.status(403).json({
-          status: false,
-          message: "nsAdmin cannot demote a superAdmin",
-        });
-      }
+    if (!rules) {
+      return res.status(403).json({
+        status: false,
+        message: "You are not allowed to demote users",
+      });
     }
+
+    // ❌ cannot assign your own role
+    if (newRole === currentUserRole) {
+      return res.status(403).json({
+        status: false,
+        message: `You cannot assign the role ${newRole}`,
+      });
+    }
+
+    // ❌ check allowed source role
+    if (!rules.canDemoteFrom.includes(user.role)) {
+      return res.status(403).json({
+        status: false,
+        message: `You cannot demote a ${user.role}`,
+      });
+    }
+
+    // ❌ check allowed target role
+    if (!rules.canDemoteTo.includes(newRole)) {
+      return res.status(403).json({
+        status: false,
+        message: `You cannot demote to ${newRole}`,
+      });
+    }
+
     // Map for readable role names
     const roleDisplayMap = {
       member: "Member",
+      leader: "Leader",
+      distAdmin: "District Admin",
       ssAdmin: "State Scout Admin",
       nsAdmin: "National Scout Admin",
       superAdmin: "Super Admin",
@@ -177,7 +274,7 @@ exports.demoteRole = async (req, res) => {
     // ✅ Audit trail logging
     await auditTrailModel.create({
       userId: user._id,
-      field: "role",
+      field: `${user.fullName} demoted to ${newRole}`,
       oldValue: displayOldRole,
       newValue: displayNewRole,
       changedBy: req.user.fullName,
@@ -227,7 +324,7 @@ exports.updateMemberStatus = async (req, res) => {
 
     await auditTrailModel.create({
       userId: user._id,
-      field: `Status`,
+      field: `${user.fullName} status changed to ${status}`,
       oldValue: user.status,
       newValue: status,
       changedBy: req.user.fullName,
@@ -414,7 +511,7 @@ exports.getUserRoleStats = async (req, res) => {
     if (req.user.role === "ssAdmin") {
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
     }
-    const roles = ["member", "leader", "ssAdmin", "nsAdmin", "superAdmin"];
+    const roles = ["member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
 
     const roleCounts = {};
 
@@ -698,7 +795,7 @@ exports.sendMessageToScouts = async (req, res) => {
 
     await new auditTrailModel({
       userId: sender._id,
-      field: "Message Sent",
+      field: `Sent Message: ${subject}`,
       oldValue: "",
       newValue: `Sent message: ${subject} to ${
         sender.role === "ssAdmin"
@@ -831,7 +928,7 @@ exports.deleteMessage = async (req, res) => {
 
     await new auditTrailModel({
       userId: req.user._id,
-      field: "Message Deletion",
+      field: `${req.user.fullName} deleted message: ${message.subject}`,
       oldValue: message.subject,
       newValue: "Message Deleted",
       changedBy: req.user.fullName,
@@ -1140,7 +1237,7 @@ exports.inviteUser = async (req, res) => {
     await invite.save();
     await auditTrailModel.create({
       userId: req.user._id,
-      field: "User Invitation",
+      field: `${req.user.fullName} invited ${fullName} as ${displayRole}`,
       oldValue: null,
       newValue: JSON.stringify({ fullName, email, role, council }),
       changedBy: req.user.fullName,
@@ -1234,7 +1331,10 @@ exports.getUserWithAllDetails = async (req, res) => {
       return res.status(404).json({ status: false, message: "User not found" });
 
     // Role-based access check
-    if (admin.role === "ssAdmin" && admin.stateScoutCouncil !== user.stateScoutCouncil) {
+    if (
+      admin.role === "ssAdmin" &&
+      admin.stateScoutCouncil !== user.stateScoutCouncil
+    ) {
       return res
         .status(403)
         .json({ status: false, message: "Access denied: Different state" });
@@ -1662,7 +1762,7 @@ exports.adminEditUser = async (req, res) => {
     // 🧾 Log admin action in audit trail
     await auditTrailModel.create({
       userId: req.user._id,
-      field: "User Profile Edit",
+      field: `${req.user.fullName} updated user profile: ${user.fullName}`,
       oldValue: JSON.stringify(oldData),
       newValue: JSON.stringify({
         fullName: user.fullName,
@@ -1855,7 +1955,7 @@ exports.acceptItem = async (req, res) => {
     // ---- Audit Trail ----
     await auditTrailModel.create({
       userId: user._id,
-      field: `${type.toUpperCase()} Approval`,
+      field: `${user.fullName} approved ${item.fullName || item.title || item.awardName} (${type})`,
       oldValue: String(oldValue),
       newValue,
       changedBy: user.fullName,
@@ -1950,7 +2050,7 @@ exports.rejectItem = async (req, res) => {
     // ---- Audit Trail ----
     await auditTrailModel.create({
       userId: user._id,
-      field: `${type.toUpperCase()} Rejection`,
+      field: `${user.fullName} rejected ${item.fullName || item.title || item.awardName} (${type})`,
       oldValue: String(oldValue),
       newValue,
       changedBy: user.fullName,

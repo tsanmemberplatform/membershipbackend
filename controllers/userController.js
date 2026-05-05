@@ -1122,7 +1122,7 @@ exports.deleteUserAndAssociations = async (req, res) => {
         // ✅ Audit trail logging
         await auditTrailModel.create({
           userId: user._id,
-          field: "deleting a Scout",
+          field: `${req.user.fullName} deleted ${user.fullName}'s account from the system`,
           oldValue: user.fullName,
           newValue: "deleted a user",
           changedBy: req.user._id,
