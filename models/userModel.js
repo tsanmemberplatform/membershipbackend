@@ -156,7 +156,7 @@ const mongoose = require('mongoose');
       role: {
         type: String,
         default: "member",
-        enum: ["member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"],
+        enum: ["member", "leader", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"],
       },
       status: {
         type: String,

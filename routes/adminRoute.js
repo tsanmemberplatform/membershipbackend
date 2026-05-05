@@ -432,7 +432,7 @@ router.get("/users/status/:status", auth, authorizeRoles("superAdmin", "nsAdmin"
  *     security:
  *       - bearerAuth: []
  *     description: >
- *       Returns total counts for each user role (`member`, `leader`, `ssAdmin`, `nsAdmin`, `superAdmin`).  
+ *       Returns total counts for each user role (`member`, `distAdmin`, `ssAdmin`, `nsAdmin`, `superAdmin`).  
  *       - `superAdmin` and `nsAdmin` see all users.  
  *       - `ssAdmin` only sees users within their stateScoutCouncil.
  *     responses:
@@ -458,7 +458,7 @@ router.get("/users/status/:status", auth, authorizeRoles("superAdmin", "nsAdmin"
  *                     member:
  *                       type: integer
  *                       example: 120
- *                     leader:
+ *                     distAdmin:
  *                       type: integer
  *                       example: 20
  *                     ssAdmin:
