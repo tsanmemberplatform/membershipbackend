@@ -16,10 +16,29 @@ const awardProgressModel = require("../models/awardProgressModel");
 const eventModel = require("../models/eventModel");
 const ActivityLog = require("../models/logModel");
 
+const applyUserJurisdictionScope = (admin, filter = {}) => {
+  if (admin.role === "distAdmin") {
+    if (!admin.scoutDistrict) {
+      throw new Error("distAdmin has no scoutDistrict assigned");
+    }
+    return { ...filter, scoutDistrict: admin.scoutDistrict };
+  }
+
+  if (admin.role === "ssAdmin") {
+    if (!admin.stateScoutCouncil) {
+      throw new Error("ssAdmin has no stateScoutCouncil assigned");
+    }
+    return { ...filter, stateScoutCouncil: admin.stateScoutCouncil };
+  }
+
+  // nsAdmin + superAdmin
+  return filter;
+};
+
 // Promote User Role
 exports.promoteRole = async (req, res) => {
   try {
-    const { email, newRole, stateScoutCouncil } = req.body;
+    const { email, newRole, stateScoutCouncil, scoutDistrict } = req.body;
 
     if (!email || !newRole) {
       return res
@@ -118,12 +137,18 @@ exports.promoteRole = async (req, res) => {
 
     const displayNewRole = roleDisplayMap[newRole] || newRole;
     const displayOldRole = roleDisplayMap[user.role] || user.role;
-    user.stateScoutCouncil = stateScoutCouncil?.trim() || "FCT Scout Council";
+    // user.stateScoutCouncil = stateScoutCouncil?.trim() || "FCT Scout Council";
+    if (stateScoutCouncil) {
+      user.stateScoutCouncil = stateScoutCouncil.trim();
+    }
+    if (scoutDistrict) {
+      user.scoutDistrict = scoutDistrict.trim();
+    }
 
     // ✅ Audit trail logging
     await auditTrailModel.create({
       userId: user._id,
-      field: `${user.fullName} promoted to ${newRole}`,
+      field: `${user.fullName} promoted to ${displayNewRole}`,
       oldValue: displayOldRole,
       newValue: displayNewRole,
       changedBy: req.user.fullName,
@@ -157,7 +182,7 @@ exports.promoteRole = async (req, res) => {
 // Demote User Role
 exports.demoteRole = async (req, res) => {
   try {
-    const { email, newRole, stateScoutCouncil } = req.body;
+    const { email, newRole, stateScoutCouncil, scoutDistrict } = req.body;
 
     if (!email || !newRole) {
       return res
@@ -269,12 +294,17 @@ exports.demoteRole = async (req, res) => {
 
     const displayNewRole = roleDisplayMap[newRole] || newRole;
     const displayOldRole = roleDisplayMap[user.role] || user.role;
-    user.stateScoutCouncil = stateScoutCouncil?.trim() || "FCT Scout Council";
-
+    // user.stateScoutCouncil = stateScoutCouncil?.trim() || "FCT Scout Council";
+    if (stateScoutCouncil) {
+      user.stateScoutCouncil = stateScoutCouncil.trim();
+    }
+    if (scoutDistrict) {
+      user.scoutDistrict = scoutDistrict.trim();
+    }
     // ✅ Audit trail logging
     await auditTrailModel.create({
       userId: user._id,
-      field: `${user.fullName} demoted to ${newRole}`,
+      field: `${user.fullName} demoted to ${displayNewRole}`,
       oldValue: displayOldRole,
       newValue: displayNewRole,
       changedBy: req.user.fullName,
@@ -351,7 +381,7 @@ exports.getMembersTrainingsByState = async (req, res) => {
 
     // Leaders: only see their state's members
     let query = {};
-    if (req.user.role === "leader") {
+    if (req.user.role === "ssAdmin") {
       query = { stateScoutCouncil };
     }
 
@@ -372,59 +402,237 @@ exports.getMembersTrainingsByState = async (req, res) => {
   }
 };
 
+// exports.getAllUsers = async (req, res) => {
+//   try {
+//     const page = Number(req.query.page) || 1;
+//     const limit = Number(req.query.limit) || 20;
+//     const sort = req.query.sort || "-createdAt";
+
+//     const filter = {};
+//     const role = req.user.role;
+
+//     /**
+//      *  ROLE VISIBILITY RULES
+//      */
+
+//     if (role === "superAdmin") {
+//       //  SEE EVERYTHING — NO FILTER
+//     } else if (role === "nsAdmin") {
+//       //  see superAdmin + ssAdmin + distAdmin + leaders/members in their state
+//     } else if (role === "ssAdmin") {
+//       //  State restriction
+//       filter.stateScoutCouncil = req.user.stateScoutCouncil;
+//     } else if (role === "distAdmin") {
+//       //  District restriction
+//       filter.scoutDistrict = req.user.scoutDistrict;
+//     }
+//     if (!["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(role)) {
+//       return res.status(403).json({
+//         status: false,
+//         message: "Access denied",
+//       });
+//     }
+
+//     try {
+//       Object.assign(filter, applyUserJurisdictionScope(req.user, filter));
+//     } catch (scopeErr) {
+//       return res.status(400).json({ status: false, message: scopeErr.message });
+//     }
+
+//     /**
+//      *  OPTIONAL FILTERS
+//      */
+
+//     if (req.query.status) filter.status = req.query.status;
+//     if (req.query.section) filter.section = req.query.section;
+//     if (req.query.role) filter.role = req.query.role;
+
+//     if (req.query.fullName) {
+//       const keywords = req.query.fullName.trim().split(/\s+/);
+//       // Ensures EVERY word searched exists somewhere in the name
+//       filter.$and = keywords.map((word) => ({
+//         fullName: { $regex: word, $options: "i" },
+//       }));
+//     }
+
+//     // if (req.query.stateScoutCouncil && role !== "ssAdmin") {
+//     //   filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+//     // }
+//     if (
+//       req.query.stateScoutCouncil &&
+//       ["superAdmin", "nsAdmin"].includes(role)
+//     ) {
+//       filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+//     }
+
+//     /**
+//      * QUERY
+//      */
+
+//     const [totalUsers, users] = await Promise.all([
+//       userModel.countDocuments(filter),
+//       userModel
+//         .find(filter)
+//         .select(
+//           "fullName membershipId role scoutingRole section stateScoutCouncil status lastSignedIn",
+//         )
+//         .sort(sort)
+//         .skip((page - 1) * limit)
+//         .limit(limit)
+//         .lean(),
+//     ]);
+
+//     const totalPages = Math.ceil(totalUsers / limit) || 1;
+
+//     const roleDisplayMap = {
+//       superAdmin: "Super Admin",
+//       nsAdmin: "National Scout Admin",
+//       ssAdmin: "State Scout Admin",
+//       distAdmin: "District Scout Admin",
+//       leader: "Scout Leader",
+//       member: "Member",
+//     };
+
+//     const formattedUsers = users.map((u) => ({
+//       ...u,
+//       displayRole: roleDisplayMap[u.role] || u.role,
+//     }));
+
+//     res.status(200).json({
+//       status: true,
+//       message: "Users fetched successfully",
+//       pagination: {
+//         totalUsers,
+//         currentPage: page,
+//         totalPages,
+//         perPage: limit,
+//         hasNextPage: page < totalPages,
+//         hasPrevPage: page > 1,
+//         totalPages: Math.ceil(totalUsers / limit),
+//       },
+//       data: formattedUsers,
+//     });
+//   } catch (error) {
+//     console.error("GET USERS ERROR:", error);
+//     res.status(500).json({
+//       status: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+
 exports.getAllUsers = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const sort = req.query.sort || "-createdAt";
 
-    const filter = {};
     const role = req.user.role;
 
+    // ✅ Only admins allowed
+    const allowedRoles = ["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({
+        status: false,
+        message: "Access denied",
+      });
+    }
+
+    // ✅ BASE FILTER
+    let filter = {};
+
     /**
-     *  ROLE VISIBILITY RULES
+     * =========================
+     * RBAC / JURISDICTION
+     * =========================
      */
 
+    // ✅ SUPER ADMIN
     if (role === "superAdmin") {
-      //  SEE EVERYTHING — NO FILTER
-    } else if (role === "nsAdmin") {
-      //  Cannot see superAdmins
-      filter.role = { $ne: "superAdmin" };
-    } else if (role === "ssAdmin") {
-      //  State restriction
+      // no restriction
+    }
+
+    // ✅ NATIONAL ADMIN
+    else if (role === "nsAdmin") {
+      // optional restriction only
+      if (req.query.stateScoutCouncil) {
+        filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
+      }
+    }
+
+    // ✅ STATE ADMIN
+    else if (role === "ssAdmin") {
+      if (!req.user.stateScoutCouncil) {
+        return res.status(400).json({
+          status: false,
+          message: "No stateScoutCouncil assigned to admin",
+        });
+      }
+
+      // STRICT STATE FILTER
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
     }
 
+    // ✅ DISTRICT ADMIN
+    else if (role === "distAdmin") {
+      if (!req.user.scoutDistrict) {
+        return res.status(400).json({
+          status: false,
+          message: "No scoutDistrict assigned to admin",
+        });
+      }
+
+      // 🚨 STRICT DISTRICT FILTER
+      filter.scoutDistrict = req.user.scoutDistrict;
+    }
     /**
-     *  OPTIONAL FILTERS
+     * =========================
+     * OPTIONAL FILTERS
+     * =========================
      */
 
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.section) filter.section = req.query.section;
-    if (req.query.role) filter.role = req.query.role;
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    if (req.query.section) {
+      filter.section = req.query.section;
+    }
+
+    /**
+     * 🚨 IMPORTANT
+     * distAdmin MUST NEVER OVERRIDE DISTRICT FILTER
+     */
+
+    if (req.query.role && role !== "distAdmin") {
+      filter.role = req.query.role;
+    }
 
     if (req.query.fullName) {
       const keywords = req.query.fullName.trim().split(/\s+/);
-      // Ensures EVERY word searched exists somewhere in the name
+
       filter.$and = keywords.map((word) => ({
-        fullName: { $regex: word, $options: "i" },
+        fullName: {
+          $regex: word,
+          $options: "i",
+        },
       }));
     }
 
-    if (req.query.stateScoutCouncil && role !== "ssAdmin") {
-      filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
-    }
-
     /**
+     * =========================
      * QUERY
+     * =========================
      */
 
     const [totalUsers, users] = await Promise.all([
       userModel.countDocuments(filter),
+
       userModel
         .find(filter)
         .select(
-          "fullName membershipId role scoutingRole section stateScoutCouncil status lastSignedIn",
+          "fullName membershipId role scoutingRole section stateScoutCouncil scoutDistrict status lastSignedIn",
         )
         .sort(sort)
         .skip((page - 1) * limit)
@@ -438,6 +646,7 @@ exports.getAllUsers = async (req, res) => {
       superAdmin: "Super Admin",
       nsAdmin: "National Scout Admin",
       ssAdmin: "State Scout Admin",
+      distAdmin: "District Scout Admin",
       leader: "Scout Leader",
       member: "Member",
     };
@@ -447,7 +656,7 @@ exports.getAllUsers = async (req, res) => {
       displayRole: roleDisplayMap[u.role] || u.role,
     }));
 
-    res.status(200).json({
+    return res.status(200).json({
       status: true,
       message: "Users fetched successfully",
       pagination: {
@@ -457,15 +666,16 @@ exports.getAllUsers = async (req, res) => {
         perPage: limit,
         hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
-        totalPages: Math.ceil(totalUsers / limit),
       },
       data: formattedUsers,
     });
   } catch (error) {
     console.error("GET USERS ERROR:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       status: false,
       message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -484,6 +694,9 @@ exports.getUsersByStatus = async (req, res) => {
 
     if (req.user.role === "ssAdmin") {
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
+    }
+    if (req.user.role === "distAdmin") {
+      filter.scoutDistrict = req.user.scoutDistrict;
     }
 
     const users = await userModel
@@ -511,6 +724,11 @@ exports.getUserRoleStats = async (req, res) => {
     if (req.user.role === "ssAdmin") {
       filter.stateScoutCouncil = req.user.stateScoutCouncil;
     }
+
+    if (req.user.role === "distAdmin") {
+      filter.scoutDistrict = req.user.scoutDistrict;
+    }
+
     const roles = ["member", "distAdmin", "ssAdmin", "nsAdmin", "superAdmin"];
 
     const roleCounts = {};
@@ -551,6 +769,16 @@ exports.getReportStatistics = async (req, res) => {
     if (role === "ssAdmin") {
       // ssAdmin: locked to their council
       filter.stateScoutCouncil = userCouncil;
+    }
+    if (role === "distAdmin") {
+      filter.scoutDistrict = req.user.scoutDistrict;
+    }
+    if (
+      req.query.stateScoutCouncil &&
+      req.query.stateScoutCouncil.trim() !== "" &&
+      ["superAdmin", "nsAdmin"].includes(role)
+    ) {
+      filter.stateScoutCouncil = req.query.stateScoutCouncil.trim();
     }
 
     if (
@@ -1331,19 +1559,48 @@ exports.getUserWithAllDetails = async (req, res) => {
       return res.status(404).json({ status: false, message: "User not found" });
 
     // Role-based access check
+    // if (
+    //   admin.role === "ssAdmin" &&
+    //   admin.stateScoutCouncil !== user.stateScoutCouncil
+    // ) {
+    //   return res
+    //     .status(403)
+    //     .json({ status: false, message: "Access denied: Different state" });
+    // }
+
+    // if (!["ssAdmin", "nsAdmin", "superAdmin"].includes(admin.role)) {
+    //   return res.status(403).json({
+    //     status: false,
+    //     message: "You don’t have access to this resource",
+    //   });
+    // }
+
+    if (
+      !["distAdmin", "ssAdmin", "nsAdmin", "superAdmin"].includes(admin.role)
+    ) {
+      return res.status(403).json({
+        status: false,
+        message: "You do not have access to this resource",
+      });
+    }
+
+    if (
+      admin.role === "distAdmin" &&
+      admin.scoutDistrict !== user.scoutDistrict
+    ) {
+      return res.status(403).json({
+        status: false,
+        message: "Access denied: Different scout district",
+      });
+    }
+
     if (
       admin.role === "ssAdmin" &&
       admin.stateScoutCouncil !== user.stateScoutCouncil
     ) {
-      return res
-        .status(403)
-        .json({ status: false, message: "Access denied: Different state" });
-    }
-
-    if (!["ssAdmin", "nsAdmin", "superAdmin"].includes(admin.role)) {
       return res.status(403).json({
         status: false,
-        message: "You don’t have access to this resource",
+        message: "Access denied: Different state scout council",
       });
     }
 

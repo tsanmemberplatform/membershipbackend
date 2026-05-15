@@ -166,7 +166,7 @@ router.patch('/status', auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin",
  *                 description: The email of the user to promote
  *               newRole:
  *                 type: string
- *                 enum: [member, ssAdmin, nsAdmin, superAdmin]
+ *                 enum: [distAdmin, ssAdmin, nsAdmin, superAdmin]
  *                 description: The role to promote the user to
  *               stateScoutCouncil:
  *                 type: string
@@ -194,7 +194,7 @@ router.patch('/status', auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin",
  *       404:
  *         description: User not found
  */
-router.post('/promote', auth, authorizeRoles('superAdmin', 'nsAdmin', 'member'), promoteRole);
+router.post('/promote', auth, authorizeRoles('superAdmin', 'nsAdmin'), promoteRole);
 
 
 /**
@@ -225,7 +225,7 @@ router.post('/promote', auth, authorizeRoles('superAdmin', 'nsAdmin', 'member'),
  *                 description: The email of the user to demote
  *               newRole:
  *                 type: string
- *                 enum: [member, ssAdmin, nsAdmin, superAdmin]
+ *                 enum: [distAdmin, ssAdmin, nsAdmin, superAdmin]
  *                 description: The role to demote the user to
  *               stateScoutCouncil:
  *                 type: string
@@ -267,6 +267,7 @@ router.post('/demote', auth, authorizeRoles('superAdmin', 'nsAdmin'), demoteRole
  *       Retrieve a paginated list of all users.  
  *       - **superAdmin** and **nsAdmin** can view all users.  
  *       - **ssAdmin** can only view users within their assigned `stateScoutCouncil`.  
+ *       - **distAdmin** can only view users within their assigned `scoutDistrict`.  
  *       Supports pagination, sorting, and filtering by name, section, status, and state.
  *     parameters:
  *       - in: query

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const idPurchaseSchema = new mongoose.Schema(
   {
@@ -9,6 +9,8 @@ const idPurchaseSchema = new mongoose.Schema(
       ref: "Payment",
       required: true,
     },
+    declineReason: { type: String, default: null },
+    declinedAt: { type: Date, default: null },
 
     status: {
       type: String,
@@ -36,5 +38,4 @@ const idPurchaseSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model('IdPurchase', idPurchaseSchema);
-
+module.exports = mongoose.model("IdPurchase", idPurchaseSchema);

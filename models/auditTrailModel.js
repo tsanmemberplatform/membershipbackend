@@ -4,7 +4,8 @@ const auditTrailSchema = new mongoose.Schema({
   field: { type: String, required: true },          
   oldValue: { type: String },
   newValue: { type: String },
-  changedBy: { type: String, required: true },      
+  changedBy: { type: String, required: true },
+  remarks: { type: String, default: "" },  
   timestamp: { type: Date, default: Date.now }
 });
 
