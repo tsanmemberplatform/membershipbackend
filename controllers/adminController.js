@@ -1833,8 +1833,8 @@ exports.manageAllRecords = async (req, res) => {
 
 exports.getAllAdmins = async (req, res) => {
   try {
-    const ADMIN_ROLES = ["superAdmin", "nsAdmin", "ssAdmin"];
-    const ALLOWED_FILTER_ROLES = ["superAdmin", "nsAdmin", "ssAdmin"];
+    const ADMIN_ROLES = ["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"];
+    const ALLOWED_FILTER_ROLES = ["superAdmin", "nsAdmin", "ssAdmin" ];
 
     // Check permission
     if (!ADMIN_ROLES.includes(req.user.role)) {
@@ -1895,6 +1895,7 @@ exports.getAllAdmins = async (req, res) => {
       superAdmin: "Super Admin",
       nsAdmin: "National Scout Admin",
       ssAdmin: "State Scout Admin",
+      distAdmin: "District Scout Admin",
     };
     const adminsWithDisplayRole = admins.map((admin) => ({
       ...admin.toObject(),
@@ -2107,7 +2108,7 @@ exports.searchEventsByTitle = async (req, res) => {
 exports.countUserStatus = async (req, res) => {
   try {
     //  Restrict access
-    if (!["superAdmin", "nsAdmin", "ssAdmin"].includes(req.user.role)) {
+    if (!["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)) {
       return res.status(403).json({
         status: false,
         message: "Access denied. Only admins can view user statistics.",
