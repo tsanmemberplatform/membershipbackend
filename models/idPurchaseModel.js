@@ -14,7 +14,7 @@ const idPurchaseSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "paid", "generated", "cancelled", "failed"],
+      enum: ["pending", "paid", "generated", "cancelled", "failed", "refunded"],
       default: "pending",
     },
     qrCode: {

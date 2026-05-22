@@ -1834,7 +1834,7 @@ exports.manageAllRecords = async (req, res) => {
 exports.getAllAdmins = async (req, res) => {
   try {
     const ADMIN_ROLES = ["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"];
-    const ALLOWED_FILTER_ROLES = ["superAdmin", "nsAdmin", "ssAdmin" ];
+    const ALLOWED_FILTER_ROLES = ["superAdmin", "nsAdmin", "ssAdmin"];
 
     // Check permission
     if (!ADMIN_ROLES.includes(req.user.role)) {
@@ -1942,7 +1942,7 @@ exports.adminEditUser = async (req, res) => {
       section,
     } = req.body;
 
-    if (!["superAdmin", "nsAdmin", "ssAdmin"].includes(req.user.role)) {
+    if (!["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)) {
       return res.status(403).json({
         status: false,
         message: "Access denied. Only admins can edit user details.",
@@ -1956,6 +1956,27 @@ exports.adminEditUser = async (req, res) => {
         message: "User not found.",
       });
     }
+
+    if (
+      req.user.role === "ssAdmin" &&
+      req.user.stateScoutCouncil !== user.stateScoutCouncil
+    ) {
+      return res.status(403).json({
+        status: false,
+        message: "Access denied: Different state scout council",
+      });
+    }
+
+    if (
+      req.user.role === "distAdmin" &&
+      req.user.scoutDistrict !== user.scoutDistrict
+    ) {
+      return res.status(403).json({
+        status: false,
+        message: "Access denied: Different scout district",
+      });
+    }
+
     // Check if email already exists (excluding current user)
     if (email && email !== user.email) {
       const existingEmail = await userModel.findOne({ email });
@@ -2108,7 +2129,9 @@ exports.searchEventsByTitle = async (req, res) => {
 exports.countUserStatus = async (req, res) => {
   try {
     //  Restrict access
-    if (!["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)) {
+    if (
+      !["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)
+    ) {
       return res.status(403).json({
         status: false,
         message: "Access denied. Only admins can view user statistics.",

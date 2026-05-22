@@ -38,9 +38,9 @@ const generateSerialNumber = async () => {
   const TEN_MAX = 9999999999;
 
   // 1. Check capacity (9-digit space is ~900 million)
- 
+
   const totalUsers = await userModel.countDocuments();
-  const useTenDigits = totalUsers >= (NINE_MAX - NINE_MIN);
+  const useTenDigits = totalUsers >= NINE_MAX - NINE_MIN;
 
   const min = useTenDigits ? TEN_MIN : NINE_MIN;
   const max = useTenDigits ? TEN_MAX : NINE_MAX;
@@ -59,10 +59,37 @@ const generateSerialNumber = async () => {
     }
   }
 
-  throw new Error("Collision limit reached. Increase MAX_RETRIES or check range.");
+  throw new Error(
+    "Collision limit reached. Increase MAX_RETRIES or check range.",
+  );
 };
 
+const refundPaymentWithProvider = async ({
+  payment_reference,
+  amount,
+  reason,
+}) => {
+  const refundReference = `REFUND-${Date.now()}`;
+  const response = await fetch(
+    `${process.env.KORA_BASE_URL}/api/v1/refunds/initiate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.KORA_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        payment_reference,
+        reference: refundReference,
+        amount,
+        reason,
+      }),
+    },
+  );
 
+  const data = await response.json();
+  return { response, data };
+};
 
 const getAdminScopeMatch = (adminUser) => {
   if (adminUser.role === "distAdmin") {
@@ -101,12 +128,21 @@ const FULFILLMENT_LABELS = {
 
 const isWithinAdminJurisdiction = (admin, user) => {
   if (!admin || !user) return false;
-  if (admin.role === "distAdmin") return admin.scoutDistrict && user.scoutDistrict && admin.scoutDistrict === user.scoutDistrict;
-  if (admin.role === "ssAdmin") return admin.stateScoutCouncil && user.stateScoutCouncil && admin.stateScoutCouncil === user.stateScoutCouncil;
+  if (admin.role === "distAdmin")
+    return (
+      admin.scoutDistrict &&
+      user.scoutDistrict &&
+      admin.scoutDistrict === user.scoutDistrict
+    );
+  if (admin.role === "ssAdmin")
+    return (
+      admin.stateScoutCouncil &&
+      user.stateScoutCouncil &&
+      admin.stateScoutCouncil === user.stateScoutCouncil
+    );
   if (admin.role === "nsAdmin" || admin.role === "superAdmin") return true;
   return false;
 };
-
 
 exports.requestIdCard = async (req, res) => {
   let createdPayment = null;
@@ -175,8 +211,8 @@ exports.requestIdCard = async (req, res) => {
     if (existingRequest) {
       const payStatus = existingRequest.payment?.status || "pending"; // pending/successful/failed
       const reqStatus = existingRequest.status; // pending/paid/generated/cancelled/failed
-      
-      // generated already 
+
+      // generated already
       if (reqStatus === "generated") {
         return res.status(400).json({
           status: false,
@@ -206,7 +242,7 @@ exports.requestIdCard = async (req, res) => {
       const retryReference = `ID-${Date.now()}-${user._id}`;
       const retryPayment = await Payment.create({
         user: user._id,
-        amount, 
+        amount,
         currency: existingRequest.payment.currency || "NGN",
         paymentType: "id_card",
         reference: retryReference,
@@ -219,8 +255,9 @@ exports.requestIdCard = async (req, res) => {
       existingRequest.status = "pending";
       await existingRequest.save();
 
-      const { gatewayResponse, gatewayData } = await initializeProvider(retryPayment);
-      
+      const { gatewayResponse, gatewayData } =
+        await initializeProvider(retryPayment);
+
       if (!gatewayResponse.ok || !gatewayData?.data?.checkout_url) {
         retryPayment.status = "failed";
         await retryPayment.save();
@@ -234,7 +271,8 @@ exports.requestIdCard = async (req, res) => {
 
       return res.status(200).json({
         status: true,
-        message: "Existing ID request found. Continue payment with new reference.",
+        message:
+          "Existing ID request found. Continue payment with new reference.",
         data: {
           requestStatus: existingRequest.status,
           paymentStatus: retryPayment.status,
@@ -258,7 +296,6 @@ exports.requestIdCard = async (req, res) => {
       reference,
       status: "pending",
     });
-
 
     createdPurchase = await IdPurchase.create({
       user: user._id,
@@ -290,7 +327,7 @@ exports.requestIdCard = async (req, res) => {
       );
 
       const data = await response.json();
-      return { gatewayResponse: response, gatewayData: data }; 
+      return { gatewayResponse: response, gatewayData: data };
     })();
 
     if (!gatewayResponse.ok || !gatewayData?.data?.checkout_url) {
@@ -317,7 +354,7 @@ exports.requestIdCard = async (req, res) => {
         paymentLink: gatewayData.data.checkout_url,
       },
     });
-  }catch (err) {
+  } catch (err) {
     if (createdPurchase?._id) {
       await IdPurchase.findByIdAndDelete(createdPurchase._id).catch(() => {});
     }
@@ -333,12 +370,12 @@ exports.resetIdCardRequest = async (req, res) => {
     const userId = req.user.id;
 
     // 1) Find ALL ID purchases for this user (not just one)
-    const idPurchases = await IdPurchase.find({ user: userId }).select("_id payment");
+    const idPurchases = await IdPurchase.find({ user: userId }).select(
+      "_id payment",
+    );
 
     // 2) Delete linked payments
-    const paymentIds = idPurchases
-      .map((p) => p.payment)
-      .filter(Boolean);
+    const paymentIds = idPurchases.map((p) => p.payment).filter(Boolean);
 
     if (paymentIds.length > 0) {
       await Payment.deleteMany({ _id: { $in: paymentIds } });
@@ -372,13 +409,14 @@ exports.resetIdCardRequest = async (req, res) => {
   }
 };
 
-
 exports.updateIdStatus = async (req, res) => {
   try {
     const { userId, status } = req.body;
     const allowed = ["pending", "paid", "generated", "cancelled", "failed"];
     if (!allowed.includes(status)) {
-      return res.status(400).json({ status: false, message: "Invalid status value" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid status value" });
     }
 
     const purchase = await IdPurchase.findOne({ user: userId })
@@ -386,7 +424,9 @@ exports.updateIdStatus = async (req, res) => {
       .populate("payment");
 
     if (!purchase) {
-      return res.status(404).json({ status: false, message: "No ID request found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "No ID request found" });
     }
 
     if (status === "generated") {
@@ -400,7 +440,8 @@ exports.updateIdStatus = async (req, res) => {
       if (!purchase.user?.membershipId) {
         return res.status(400).json({
           status: false,
-          message: "Users must verify their account before requesting an ID card.",
+          message:
+            "Users must verify their account before requesting an ID card.",
         });
       }
 
@@ -465,12 +506,14 @@ exports.updateIdStatus = async (req, res) => {
   }
 };
 
-
 exports.getMyIdStatus = async (req, res) => {
   try {
     const purchase = await IdPurchase.findOne({ user: req.user.id })
-    .populate("payment")
-    .populate("user", "fullName gender membershipId section stateScoutCouncil scoutDistrict profilePic status idCard");
+      .populate("payment")
+      .populate(
+        "user",
+        "fullName gender membershipId section stateScoutCouncil scoutDistrict profilePic status idCard",
+      );
 
     if (!purchase) {
       return res.status(200).json({
@@ -487,6 +530,10 @@ exports.getMyIdStatus = async (req, res) => {
       cancelled: "Declined",
       failed: "Failed",
     };
+    const paymentStatus =
+      purchase.payment?.refundStatus === "successful"
+        ? "refunded"
+        : purchase.payment?.status || "pending";
 
     const rawStatus = purchase.status;
     const displayStatus = statusMap[rawStatus] || "Pending";
@@ -500,22 +547,22 @@ exports.getMyIdStatus = async (req, res) => {
         paymentStatus: purchase.payment?.status || "pending",
         adminConfirmed: rawStatus === "generated",
         userDetails: purchase.user
-          ?{
-            id: purchase.user._id,
-            fullName: purchase.user.fullName,
-            gender: purchase.user.gender,
-            membershipId: purchase.user.membershipId,
-            section: purchase.user.section,
-            stateScoutCouncil: purchase.user.stateScoutCouncil,
-            scoutDistrict: purchase.user.scoutDistrict,
-            profilePic: purchase.user.profilePic,
-            status: purchase.user.status,
-            serialNumber: purchase.user.idCard?.serialNumber || null,
-            issuedAt: purchase.user.idCard?.issuedAt || null,
-            expiresAt: purchase.user.idCard?.expiresAt || null,
-
+          ? {
+              id: purchase.user._id,
+              fullName: purchase.user.fullName,
+              gender: purchase.user.gender,
+              membershipId: purchase.user.membershipId,
+              section: purchase.user.section,
+              stateScoutCouncil: purchase.user.stateScoutCouncil,
+              scoutDistrict: purchase.user.scoutDistrict,
+              profilePic: purchase.user.profilePic,
+              status: purchase.user.status,
+              serialNumber: purchase.user.idCard?.serialNumber || null,
+              issuedAt: purchase.user.idCard?.issuedAt || null,
+              expiresAt: purchase.user.idCard?.expiresAt || null,
             }
           : null,
+        paymentStatus,
       },
     });
   } catch (err) {
@@ -530,7 +577,9 @@ exports.verifyQr = async (req, res) => {
     const parts = payload.split("|");
 
     if (parts.length < 5) {
-      return res.status(400).json({ valid: false, message: "Invalid QR format" });
+      return res
+        .status(400)
+        .json({ valid: false, message: "Invalid QR format" });
     }
 
     const [membershipId, userId, purchaseId, timestamp, signature] = parts;
@@ -545,7 +594,7 @@ exports.verifyQr = async (req, res) => {
     if (signature !== expectedSig) {
       return res.status(400).json({
         valid: false,
-        message: "QR code has been tampered with"
+        message: "QR code has been tampered with",
       });
     }
 
@@ -555,14 +604,14 @@ exports.verifyQr = async (req, res) => {
     if (!user || !purchase) {
       return res.status(404).json({
         valid: false,
-        message: "Invalid ID record"
+        message: "Invalid ID record",
       });
     }
 
     if (!purchase.qrCode?.isActive) {
       return res.status(400).json({
         valid: false,
-        message: "QR is inactive"
+        message: "QR is inactive",
       });
     }
 
@@ -576,21 +625,27 @@ exports.verifyQr = async (req, res) => {
         name: user.fullName,
         membershipId: user.membershipId,
         section: user.section,
-        status: user.status
-      }
+        status: user.status,
+      },
     });
-
   } catch (err) {
     return res.status(500).json({
       valid: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
 exports.getAllIdRequestsAdmin = async (req, res) => {
   try {
     const admin = req.user;
-    const { page = 1, limit = 10, section, paymentStatus, fulfillmentStatus, search } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      section,
+      paymentStatus,
+      fulfillmentStatus,
+      search,
+    } = req.query;
 
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
@@ -602,12 +657,18 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
 
     if (admin.role === "distAdmin") {
       if (!admin.scoutDistrict) {
-        return res.status(400).json({ status: false, message: "distAdmin has no scoutDistrict assigned" });
+        return res.status(400).json({
+          status: false,
+          message: "distAdmin has no scoutDistrict assigned",
+        });
       }
       userMatch.scoutDistrict = admin.scoutDistrict;
     } else if (admin.role === "ssAdmin") {
       if (!admin.stateScoutCouncil) {
-        return res.status(400).json({ status: false, message: "ssAdmin has no stateScoutCouncil assigned" });
+        return res.status(400).json({
+          status: false,
+          message: "ssAdmin has no stateScoutCouncil assigned",
+        });
       }
       userMatch.stateScoutCouncil = admin.stateScoutCouncil;
     }
@@ -617,7 +678,9 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
     if (paymentStatus) {
       const allowed = ["pending", "successful", "failed"];
       if (!allowed.includes(String(paymentStatus).toLowerCase())) {
-        return res.status(400).json({ status: false, message: "Invalid paymentStatus filter" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid paymentStatus filter" });
       }
       paymentMatch.status = String(paymentStatus).toLowerCase();
     }
@@ -625,7 +688,9 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
     if (fulfillmentStatus) {
       const mapped = mapUiFulfillmentToDb(fulfillmentStatus);
       if (!mapped) {
-        return res.status(400).json({ status: false, message: "Invalid fulfillmentStatus filter" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid fulfillmentStatus filter" });
       }
       matchStage.status = { $in: mapped };
     }
@@ -652,8 +717,18 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
       { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
     ];
 
-    if (Object.keys(userMatch).length) pipeline.push({ $match: Object.fromEntries(Object.entries(userMatch).map(([k, v]) => [`user.${k}`, v])) });
-    if (Object.keys(paymentMatch).length) pipeline.push({ $match: Object.fromEntries(Object.entries(paymentMatch).map(([k, v]) => [`payment.${k}`, v])) });
+    if (Object.keys(userMatch).length)
+      pipeline.push({
+        $match: Object.fromEntries(
+          Object.entries(userMatch).map(([k, v]) => [`user.${k}`, v]),
+        ),
+      });
+    if (Object.keys(paymentMatch).length)
+      pipeline.push({
+        $match: Object.fromEntries(
+          Object.entries(paymentMatch).map(([k, v]) => [`payment.${k}`, v]),
+        ),
+      });
 
     if (search) {
       const s = String(search).trim();
@@ -696,7 +771,7 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
           ],
           totalCount: [{ $count: "count" }],
         },
-      }
+      },
     );
 
     const [result] = await IdPurchase.aggregate(pipeline);
@@ -711,7 +786,10 @@ exports.getAllIdRequestsAdmin = async (req, res) => {
       scoutDistrict: r.user?.scoutDistrict || null,
       stateScoutCouncil: r.user?.stateScoutCouncil || null,
       amount: r.payment?.amount ?? null,
-      paymentReference: r.payment?.reference || null,
+      paymentReference:
+        r.payment?.refundStatus === "successful"
+          ? "refunded"
+          : (r.payment?.status || "pending"),
       paymentStatus: r.payment?.status || "pending",
       fulfillmentStatus: FULFILLMENT_LABELS[r.status] || "Pending",
       rawStatus: r.status,
@@ -739,19 +817,36 @@ exports.getSinglePaidIdRequestAdmin = async (req, res) => {
   try {
     const { requestId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(requestId)) {
-      return res.status(400).json({ status: false, message: "Invalid requestId" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid requestId" });
     }
 
     const purchase = await IdPurchase.findById(requestId)
-      .populate("user", "fullName gender membershipId section scoutDistrict stateScoutCouncil profilePic status idCard")
+      .populate(
+        "user",
+        "fullName gender membershipId section scoutDistrict stateScoutCouncil profilePic status idCard",
+      )
       .populate("payment");
 
     if (!purchase) {
-      return res.status(404).json({ status: false, message: "ID request not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "ID request not found" });
     }
 
     if (!isWithinAdminJurisdiction(req.user, purchase.user)) {
-      return res.status(403).json({ status: false, message: "Access denied for this jurisdiction" });
+      return res.status(403).json({
+        status: false,
+        message: "Access denied for this jurisdiction",
+      });
+    }
+
+    if (purchase.payment?.refundStatus === "successful") {
+      return res.status(400).json({
+        status: false,
+        message: "This request was refunded and is no longer eligible",
+      });
     }
 
     if (purchase.payment?.status !== "successful") {
@@ -762,43 +857,45 @@ exports.getSinglePaidIdRequestAdmin = async (req, res) => {
     }
 
     const statusMap = {
-  pending: "Pending Admin Confirmation",
-  paid: "Pending Admin Confirmation",
-  generated: "Approved and Generated",
-  cancelled: "Declined",
-  failed: "Failed",
-};
+      pending: "Pending Admin Confirmation",
+      paid: "Pending Admin Confirmation",
+      generated: "Approved and Generated",
+      cancelled: "Declined",
+      failed: "Failed",
+    };
 
-const rawStatus = purchase.status;
-const displayStatus = statusMap[rawStatus] || "Pending";
+    const rawStatus = purchase.status;
+    const displayStatus = statusMap[rawStatus] || "Pending";
 
-return res.json({
-  status: true,
-  data: {
-    ...purchase.toObject(),
-    rawStatus,
-    displayStatus,
-    paymentStatus: purchase.payment?.status || "pending",
-    adminConfirmed: rawStatus === "generated",
-    userDetails: purchase.user
-      ? {
-          id: purchase.user._id,
-          fullName: purchase.user.fullName,
-          gender: purchase.user.gender,
-          membershipId: purchase.user.membershipId,
-          section: purchase.user.section,
-          stateScoutCouncil: purchase.user.stateScoutCouncil,
-          scoutDistrict: purchase.user.scoutDistrict,
-          profilePic: purchase.user.profilePic,
-          status: purchase.user.status,
-          serialNumber: purchase.user.idCard?.serialNumber || null,
-          issuedAt: purchase.user.idCard?.issuedAt || null,
-          expiresAt: purchase.user.idCard?.expiresAt || null,
-        }
-      : null,
-  },
-});
-
+    return res.json({
+      status: true,
+      data: {
+        ...purchase.toObject(),
+        rawStatus,
+        displayStatus,
+        paymentStatus:
+          purchase.payment?.refundStatus === "successful"
+          ? "refunded"
+          : (purchase.payment?.status || "pending"),
+        adminConfirmed: rawStatus === "generated",
+        userDetails: purchase.user
+          ? {
+              id: purchase.user._id,
+              fullName: purchase.user.fullName,
+              gender: purchase.user.gender,
+              membershipId: purchase.user.membershipId,
+              section: purchase.user.section,
+              stateScoutCouncil: purchase.user.stateScoutCouncil,
+              scoutDistrict: purchase.user.scoutDistrict,
+              profilePic: purchase.user.profilePic,
+              status: purchase.user.status,
+              serialNumber: purchase.user.idCard?.serialNumber || null,
+              issuedAt: purchase.user.idCard?.issuedAt || null,
+              expiresAt: purchase.user.idCard?.expiresAt || null,
+            }
+          : null,
+      },
+    });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
@@ -824,21 +921,31 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
     }
 
     if (!isWithinAdminJurisdiction(req.user, purchase.user)) {
-      return res
-        .status(403)
-        .json({
-          status: false,
-          message: "Access denied for this jurisdiction",
-        });
+      return res.status(403).json({
+        status: false,
+        message: "Access denied for this jurisdiction",
+      });
+    }
+
+    if (["generated", "cancelled", "refunded"].includes(purchase.status)) {
+      return res.status(400).json({
+        status: false,
+        message: `This request is already ${purchase.status} and cannot be processed again`,
+      });
+    }
+
+    if (purchase.payment?.refundStatus === "successful") {
+      return res.status(400).json({
+        status: false,
+        message: "Cannot approve a refunded request",
+      });
     }
 
     if (purchase.payment?.status !== "successful") {
-      return res
-        .status(400)
-        .json({
-          status: false,
-          message: "Cannot generate ID before successful payment",
-        });
+      return res.status(400).json({
+        status: false,
+        message: "Cannot generate ID before successful payment",
+      });
     }
 
     if (!purchase.user?.membershipId) {
@@ -846,18 +953,13 @@ exports.approveAndGenerateIdRequestAdmin = async (req, res) => {
         .status(400)
         .json({ status: false, message: "User has no membershipId" });
     }
-
-    const payload = buildQrPayload({
-      membershipId: purchase.user.membershipId,
-      userId: purchase.user._id.toString(),
-      purchaseId: purchase._id.toString(),
-    });
-
-    const imageDataUrl = await qrcode.toDataURL(payload);
+    const frontendUrl = `https://scouts.org.ng/scout/${purchase.user._id.toString()}`;
+    const imageDataUrl = await qrcode.toDataURL(frontendUrl);
+    // const imageDataUrl = await qrcode.toDataURL(payload);
 
     purchase.status = "generated";
     purchase.qrCode = {
-      payload,
+      payload: frontendUrl,
       imageDataUrl,
       generatedAt: new Date(),
       isActive: true,
@@ -904,19 +1006,94 @@ exports.declineIdRequestAdmin = async (req, res) => {
   try {
     const { requestId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(requestId)) {
-      return res.status(400).json({ status: false, message: "Invalid requestId" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid requestId" });
     }
+
+    const reasonText =
+      typeof req.body?.reason === "string" && req.body.reason.trim()
+        ? req.body.reason.trim()
+        : "ID card request declined by admin";
 
     const purchase = await IdPurchase.findById(requestId)
       .populate("user")
       .populate("payment");
 
     if (!purchase) {
-      return res.status(404).json({ status: false, message: "ID request not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "ID request not found" });
     }
 
     if (!isWithinAdminJurisdiction(req.user, purchase.user)) {
-      return res.status(403).json({ status: false, message: "Access denied for this jurisdiction" });
+      return res.status(403).json({
+        status: false,
+        message: "Access denied for this jurisdiction",
+      });
+    }
+
+    if (["generated", "cancelled"].includes(purchase.status)) {
+      return res.status(400).json({
+        status: false,
+        message: `This request is already ${purchase.status} and cannot be processed again`,
+      });
+    }
+
+    if (!process.env.KORA_BASE_URL || !process.env.KORA_SECRET_KEY) {
+      return res.status(500).json({
+        status: false,
+        message: "Refund provider configuration is missing",
+      });
+    }
+    let refundProcessed = false;
+    let refundResponse = null;
+
+    if (purchase.payment?.status === "successful") {
+      purchase.payment.refundStatus = "pending";
+      await purchase.payment.save();
+
+      const { response, data } = await refundPaymentWithProvider({
+        payment_reference: purchase.payment.reference,
+        amount: purchase.payment.amount,
+        reason: reasonText,
+      });
+
+      refundResponse = data;
+
+      if (!response.ok || data?.status === false) {
+        purchase.payment.refundStatus = "failed";
+        purchase.payment.metadata = {
+          ...(purchase.payment.metadata || {}),
+          refundPayload: data,
+        };
+        await purchase.payment.save();
+
+        return res.status(502).json({
+          status: false,
+          message: "Decline failed because refund could not be completed",
+          providerResponse: data,
+        });
+      }
+
+      purchase.payment.refundStatus = "successful";
+      purchase.payment.refundAmount = purchase.payment.amount;
+      purchase.payment.refundedAt = new Date();
+      purchase.payment.metadata = {
+        ...(purchase.payment.metadata || {}),
+        refundPayload: data,
+      };
+      await purchase.payment.save();
+      refundProcessed = true;
+      await userModel.findByIdAndUpdate(purchase.user._id, {
+        $set: {
+          "idCard.paid": false,
+          "idCard.paidAt": null,
+          "idCard.issued": false,
+          "idCard.issuedAt": null,
+          "idCard.expiresAt": null,
+        },
+      });
     }
 
     purchase.status = "cancelled";
@@ -929,6 +1106,8 @@ exports.declineIdRequestAdmin = async (req, res) => {
       requestedBy: req.user._id,
       usedAt: new Date(),
     };
+    purchase.declineReason = reasonText;
+    purchase.declinedAt = new Date();
 
     await purchase.save();
 
@@ -936,6 +1115,13 @@ exports.declineIdRequestAdmin = async (req, res) => {
       status: true,
       message: "ID request declined successfully",
       data: purchase,
+      refundDetails: refundResponse,
+      refundProcessed,
+      declineReason: reasonText,
+      refundStatus:
+        purchase.payment?.refundStatus === "successful"
+          ? "refunded"
+          : "not_refunded",
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
@@ -1004,4 +1190,31 @@ exports.getIdCardStats = async (req, res) => {
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
+};
+
+exports.getPublicIdCard = async (req, res) => {
+  const user = await userModel
+    .findById(req.params.userId)
+    .select(
+      "fullName membershipId section profilePic stateScoutCouncil scoutDistrict idCard",
+    );
+
+  if (!user) {
+    return res.status(404).json({ status: false, message: "User not found" });
+  }
+
+  return res.json({
+    status: true,
+    data: {
+      fullName: user.fullName,
+      membershipId: user.membershipId,
+      section: user.section,
+      profilePic: user.profilePic,
+      stateScoutCouncil: user.stateScoutCouncil,
+      scoutDistrict: user.scoutDistrict,
+      serialNumber: user.idCard?.serialNumber,
+      issuedAt: user.idCard?.issuedAt,
+      expiresAt: user.idCard?.expiresAt,
+    },
+  });
 };

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr, getIdCardStats } = require('../controllers/idCardController');
+const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr, getIdCardStats, getPublicIdCard } = require('../controllers/idCardController');
 const {auth, authorizeRoles } = require('../middleware/authMiddleware');
 
 /**
@@ -119,7 +119,9 @@ router.patch("/update", auth, authorizeRoles( "distAdmin", "ssAdmin", "superAdmi
  *             example:
  *               status: true
  *               data:
- *                 status: paid
+ *                 rawStatus: refunded
+ *                 displayStatus: Declined
+ *                 paymentStatus: refunded
  *                 payment:
  *                   reference: ID-123
  *       500:
@@ -155,7 +157,7 @@ router.get("/status", auth, getMyIdStatus);
  *         name: paymentStatus
  *         schema:
  *           type: string
- *           enum: [pending, successful, failed]
+ *           enum: [pending, successful, failed, refunded]
  *       - in: query
  *         name: fulfillmentStatus
  *         schema:
@@ -201,7 +203,7 @@ router.get(
  *       200:
  *         description: Paid ID request fetched successfully
  *       400:
- *         description: Invalid requestId or request is not paid
+ *         description: Invalid requestId, request is not paid, or request has already been refunded
  *       403:
  *         description: Access denied for jurisdiction
  *       404:
@@ -234,7 +236,7 @@ router.get(
  *       200:
  *         description: ID approved and generated successfully
  *       400:
- *         description: Invalid request, not paid, or missing membership ID
+ *         description: Invalid request, not paid, refunded, already processed, or missing membership ID
  *       403:
  *         description: Access denied for jurisdiction
  *       404:
@@ -263,11 +265,24 @@ router.patch(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 example: "Photo mismatch with profile record"
+ *                 description: Decline/refund reason stored on the ID request and sent to payment provider refund API.
  *     responses:
  *       200:
- *         description: ID request declined successfully
+ *         description: ID request declined successfully (and refunded where applicable)
  *       400:
- *         description: Invalid requestId
+ *         description: Invalid requestId or request already processed (generated/cancelled/refunded)
+ *       502:
+ *         description: Decline blocked because refund could not be completed at provider
  *       403:
  *         description: Access denied for jurisdiction
  *       404:
@@ -337,5 +352,104 @@ router.get(
   authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
   getIdCardStats
 );
+
+/**
+ * @swagger
+ * /public/{userId}:
+ *   get:
+ *     summary: Get public ID card details by user ID
+ *     description: |
+ *       This endpoint returns publicly available ID card information for a user.
+ *       It is typically used when a QR code is scanned and redirects to the frontend URL,
+ *       which then calls this endpoint using the userId.
+ *
+ *       No authentication is required because the data is intended to be publicly accessible
+ *       for verification purposes.
+ *
+ *     tags:
+ *       - Public ID Card
+ *
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         description: The unique ID of the user whose ID card is being fetched
+ *         schema:
+ *           type: string
+ *           example: 64f9c2a1b8d3e5a9c1234567
+ *
+ *     responses:
+ *       200:
+ *         description: ID card details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     fullName:
+ *                       type: string
+ *                       example: John Doe
+ *                     membershipId:
+ *                       type: string
+ *                       example: SCOUT-2026-00123
+ *                     section:
+ *                       type: string
+ *                       example: Scout
+ *                     profilePic:
+ *                       type: string
+ *                       example: https://cdn.example.com/profile.jpg
+ *                     stateScoutCouncil:
+ *                       type: string
+ *                       example: Lagos State Scout Council
+ *                     scoutDistrict:
+ *                       type: string
+ *                       example: Ikeja District
+ *                     serialNumber:
+ *                       type: string
+ *                       example: 123456789
+ *                     issuedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: 2026-01-10T10:00:00.000Z
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: 2027-01-10T10:00:00.000Z
+ *
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: User not found
+ *
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Internal server error
+ */
+router.get("/public/:userId", getPublicIdCard);
 
 module.exports = router;
