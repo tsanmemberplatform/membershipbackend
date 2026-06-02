@@ -169,16 +169,29 @@ exports.requestIdCard = async (req, res) => {
 
     const { notificationUrl, redirectUrl } = getPaymentUrls(req);
     const amount = getIdCardPrice(user.section);
+
+    // Allow fresh request when previous successful payment was later refunded.
+    // This prevents stale idCard.paid=true from blocking legitimate re-requests.
     if (user.idCard?.paid) {
-      return res
-        .status(400)
-        .json({ status: false, message: "ID card already paid for" });
+      const hasSuccessfulRefund = await Payment.exists({
+        user: user._id,
+        paymentType: "id_card",
+        refundStatus: "successful",
+      });
+
+      if (!hasSuccessfulRefund) {
+        return res
+          .status(400)
+          .json({ status: false, message: "ID card already paid for" });
+      }
     }
 
     const existingRequest = await IdPurchase.findOne({
       user: user._id,
       status: { $in: ["pending", "paid", "generated"] },
-    }).populate("payment");
+    })
+      .populate("payment")
+      .sort({ createdAt: -1 });
 
     // helper to initialize provider
     const initializeProvider = async (paymentDoc) => {
@@ -210,6 +223,7 @@ exports.requestIdCard = async (req, res) => {
 
     if (existingRequest) {
       const payStatus = existingRequest.payment?.status || "pending"; // pending/successful/failed
+      const isRefunded = existingRequest.payment?.refundStatus === "successful";
       const reqStatus = existingRequest.status; // pending/paid/generated/cancelled/failed
 
       // generated already
@@ -224,8 +238,8 @@ exports.requestIdCard = async (req, res) => {
         });
       }
 
-      // already paid, awaiting admin generation
-      if (payStatus === "successful") {
+      // already paid, awaiting admin generation (only if not refunded)
+      if (payStatus === "successful" && !isRefunded) {
         return res.status(200).json({
           status: true,
           message: "Payment already completed. Awaiting ID generation.",
@@ -238,7 +252,7 @@ exports.requestIdCard = async (req, res) => {
         });
       }
 
-      // retry flow create fresh payment with fresh reference
+      // retry flow: failed/pending/refunded request gets a fresh payment reference
       const retryReference = `ID-${Date.now()}-${user._id}`;
       const retryPayment = await Payment.create({
         user: user._id,
@@ -369,25 +383,28 @@ exports.resetIdCardRequest = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 1) Find ALL ID purchases for this user (not just one)
-    const idPurchases = await IdPurchase.find({ user: userId }).select(
-      "_id payment",
-    );
+    // 1) Gather all ID purchases and their linked payments
+    const idPurchases = await IdPurchase.find({ user: userId }).select("_id payment");
+    const linkedPaymentIds = idPurchases.map((p) => p.payment).filter(Boolean);
 
-    // 2) Delete linked payments
-    const paymentIds = idPurchases.map((p) => p.payment).filter(Boolean);
+    // 2) Delete all ID purchases for this user (removes status, QR, adminConfirm, decline metadata)
+    const deletedPurchases = await IdPurchase.deleteMany({ user: userId });
 
-    if (paymentIds.length > 0) {
-      await Payment.deleteMany({ _id: { $in: paymentIds } });
+    // 3) Delete linked payments + any orphaned id_card payments for this user
+    // This guarantees stale failed/pending/refund metadata is cleared too.
+    const paymentDeleteFilter = {
+      user: userId,
+      paymentType: "id_card",
+    };
+    if (linkedPaymentIds.length > 0) {
+      paymentDeleteFilter.$or = [
+        { _id: { $in: linkedPaymentIds } },
+        { user: userId, paymentType: "id_card" },
+      ];
     }
+    const deletedPayments = await Payment.deleteMany(paymentDeleteFilter);
 
-    // 3) Delete all ID purchase records
-    if (idPurchases.length > 0) {
-      const purchaseIds = idPurchases.map((p) => p._id);
-      await IdPurchase.deleteMany({ _id: { $in: purchaseIds } });
-    }
-
-    // 4) Reset all ID-card-related user fields
+    // 4) Reset all user-level idCard fields
     await userModel.findByIdAndUpdate(userId, {
       $set: {
         "idCard.paid": false,
@@ -401,8 +418,12 @@ exports.resetIdCardRequest = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message:
-        "Test cleanup successful: all ID requests/payments removed and user ID card fields reset.",
+      message: "ID card reset successful. All ID-card-related records have been cleared.",
+      data: {
+        deletedPurchases: deletedPurchases.deletedCount || 0,
+        deletedPayments: deletedPayments.deletedCount || 0,
+        userId,
+      },
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
@@ -1186,6 +1207,152 @@ exports.getIdCardStats = async (req, res) => {
         totalPending: stats?.totalPending || 0,
         totalGenerated: stats?.totalGenerated || 0,
       },
+    });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+exports.getUsersByNameOrUserIdAdmin = async (req, res) => {
+  try {
+    const admin = req.user;
+    const { userId, name, page = 1, limit = 10 } = req.query;
+
+    if (!userId && !name) {
+      return res.status(400).json({
+        status: false,
+        message: "Provide either userId or name query parameter",
+      });
+    }
+
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const userFilter = {};
+
+    // Enforce RBAC scope before user search.
+    const scope = getAdminScopeMatch(admin);
+    Object.assign(userFilter, scope);
+
+    if (userId) {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid userId" });
+      }
+      userFilter._id = userId;
+    }
+
+    if (name) {
+      userFilter.fullName = { $regex: String(name).trim(), $options: "i" };
+    }
+
+    const [users, total] = await Promise.all([
+      userModel
+        .find(userFilter)
+        .select(
+          "fullName membershipId email gender section status profilePic stateScoutCouncil scoutDistrict idCard",
+        )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      userModel.countDocuments(userFilter),
+    ]);
+
+    const userIds = users.map((u) => u._id);
+
+    const purchases = await IdPurchase.find({ user: { $in: userIds } })
+      .populate("payment")
+      .sort({ createdAt: -1 });
+
+    const latestByUser = new Map();
+    for (const p of purchases) {
+      const key = p.user.toString();
+      if (!latestByUser.has(key)) latestByUser.set(key, p);
+    }
+
+    const statusMap = {
+      pending: "Pending Admin Confirmation",
+      paid: "Pending Admin Confirmation",
+      generated: "Approved and Generated",
+      cancelled: "Declined",
+      failed: "Failed",
+      refunded: "Refunded",
+    };
+
+    const data = users.map((u) => {
+      const purchase = latestByUser.get(u._id.toString()) || null;
+      const payment = purchase?.payment || null;
+      const rawStatus = purchase?.status || "none";
+      const displayStatus = statusMap[rawStatus] || "No Request";
+      const paymentStatus =
+        payment?.refundStatus === "successful"
+          ? "refunded"
+          : (payment?.status || "none");
+
+      return {
+        user: {
+          id: u._id,
+          fullName: u.fullName,
+          membershipId: u.membershipId,
+          email: u.email,
+          gender: u.gender,
+          section: u.section,
+          status: u.status,
+          profilePic: u.profilePic,
+          stateScoutCouncil: u.stateScoutCouncil,
+          scoutDistrict: u.scoutDistrict,
+          idCard: {
+            paid: u.idCard?.paid || false,
+            issued: u.idCard?.issued || false,
+            paidAt: u.idCard?.paidAt || null,
+            serialNumber: u.idCard?.serialNumber || null,
+            issuedAt: u.idCard?.issuedAt || null,
+            expiresAt: u.idCard?.expiresAt || null,
+          },
+        },
+        idRequest: purchase
+          ? {
+              requestId: purchase._id,
+              rawStatus,
+              displayStatus,
+              declineReason: purchase.declineReason || null,
+              declinedAt: purchase.declinedAt || null,
+              qrCodeActive: purchase.qrCode?.isActive || false,
+              createdAt: purchase.createdAt,
+              updatedAt: purchase.updatedAt,
+            }
+          : null,
+        payment: payment
+          ? {
+              paymentId: payment._id,
+              reference: payment.reference,
+              amount: payment.amount,
+              currency: payment.currency,
+              paymentType: payment.paymentType,
+              status: payment.status,
+              refundStatus: payment.refundStatus,
+              refundAmount: payment.refundAmount,
+              refundedAt: payment.refundedAt,
+              computedStatus: paymentStatus,
+              createdAt: payment.createdAt,
+              updatedAt: payment.updatedAt,
+            }
+          : null,
+      };
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "User ID card details fetched successfully",
+      pagination: {
+        total,
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum) || 1,
+        limit: limitNum,
+      },
+      data,
     });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });

@@ -236,15 +236,47 @@ const mfaEmailTemplate = (fullName, otp) => {
   `;
 };
 
-const inviteUserMail = (fullName, role, council, inviteLink) => {
+const inviteUserMail = (
+  fullName,
+  role,
+  council,
+  inviteLink,
+  district = null,
+) => {
+
+  let assignmentText = "";
+
+  if (role === "District Scout Admin" && council && district) {
+    assignmentText = `
+      Congratulations, You have been assigned as a 
+      <strong>${role}</strong> to manage 
+      <strong>${district}</strong>, 
+      under <strong>${council}</strong>.
+    `;
+  } else if (role === "State Scout Admin" && council) {
+    assignmentText = `
+      Congratulations, You have been assigned as a 
+      <strong>${role}</strong> to manage 
+      <strong>${council}</strong>.
+    `;
+  } else {
+    assignmentText = `
+      Congratulations, You have been assigned as a 
+      <strong>${role}</strong> on the TSAN platform.
+    `;
+  }
+
   return `
     <div style="background:#f9f9f9; padding:40px; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
       <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
 
         <div style="padding:30px; color:#333;">
-          <h2 style="margin-top:0; color:#000000;">Hello ${fullName.split(" ")[0]},</h2>
+          <h2 style="margin-top:0; color:#000000;">
+            Hello ${fullName.split(" ")[0]},
+          </h2>
+
           <p style="font-size:15px; line-height:1.6;">
-           Congratulation, You have been assigned as a <strong>${role}</strong> to manage <strong>${council}</strong>.
+            ${assignmentText}
           </p>
 
           <p style="font-size:15px; line-height:1.6;">
@@ -260,20 +292,23 @@ const inviteUserMail = (fullName, role, council, inviteLink) => {
           </div>
 
           <p style="font-size:14px; color:#555; line-height:1.6;">
-            This invitation will expire in <strong>30 days</strong>. If you do not complete onboarding before it expires, 
+            This invitation will expire in <strong>30 days</strong>. 
+            If you do not complete onboarding before it expires,
             you’ll need to request a new invite.
           </p>
-
-          
         </div>
 
         <!-- Footer -->
-      <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
-      <img
-        src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png" alt="TSAN Logo"
-        style="max-width:34px; height:auto;">
-      <p style="margin-top:10px;">© ${new Date().getFullYear()} TSAN. All rights reserved.</p>
-      </div>
+        <div style="background:#18b818; padding:15px; text-align:center; font-size:12px; color:#888;">
+          <img
+            src="https://res.cloudinary.com/dk5wronzp/image/upload/v1771089552/uploads/wlnd4szugsddmr6fobs2.png"
+            alt="TSAN Logo"
+            style="max-width:34px; height:auto;"
+          >
+
+          <p style="margin-top:10px;">
+            © ${new Date().getFullYear()} TSAN. All rights reserved.
+          </p>
         </div>
       </div>
     </div>

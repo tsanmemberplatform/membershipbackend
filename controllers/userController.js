@@ -197,17 +197,25 @@ exports.verifyOtp = async (req, res) => {
       }   
 
       if (user.emailVerified === true){
-        const invitation = await invitationModel.findOne({ email: (user.email || "").toLowerCase(), status: "pending" });
+        const invitation = await invitationModel.findOne({ 
+          email: (user.email || "").toLowerCase(),
+          status: { $in: ["pending", "resent"] },
+        }).sort({ createdAt: -1 });
        
         if (invitation){
           const oldRole = user.role;
           if(invitation.expiresAt > new Date()){
             user.stateScoutCouncil = invitation.council;
             user.role = invitation.role;
-             await Promise.all([
+            if (invitation.role === "distAdmin") {
+              user.scoutDistrict = invitation.district;
+
+            }
+            await Promise.all([
         user.save(),
         (async () => {
           invitation.status = "accepted";
+          invitation.acceptedAt = new Date();
           await invitation.save();
         })(),
         auditTrailModel.create({

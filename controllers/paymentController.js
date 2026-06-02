@@ -287,11 +287,70 @@ exports.verifyPayment = async (req, res) => {
 exports.koraWebhook = async (req, res) => {
   try {
     const payload = req.body || {};
+    const event = String(payload.event || "").toLowerCase();
     const data = payload.data || {};
-    const reference = data.reference;
-    if (!reference) return res.sendStatus(200);
+    const chargeReference = data.reference;
+    const paymentReference = data.payment_reference; // present in refund webhooks
 
-    const payment = await paymentModel.findOne({ reference });
+    // REFUND WEBHOOK FLOW
+    // Expected shape:
+    // {
+    //   event: "refund.success" | "refund.failed",
+    //   data: { payment_reference, reference, amount, status, ... }
+    // }
+    if (event.startsWith("refund.")) {
+      if (!paymentReference) return res.sendStatus(200);
+
+      const payment = await paymentModel.findOne({ reference: paymentReference });
+      if (!payment) return res.sendStatus(200);
+
+      const refundStatus = String(data.status || "").toLowerCase();
+      const isRefundSuccess =
+        event === "refund.success" ||
+        refundStatus === "success" ||
+        refundStatus === "successful";
+
+      const refundAmount = Number(data.amount);
+      payment.refundStatus = isRefundSuccess ? "successful" : "failed";
+      payment.refundAmount = Number.isFinite(refundAmount)
+        ? refundAmount
+        : payment.refundAmount || 0;
+      payment.refundedAt = isRefundSuccess ? new Date() : null;
+      payment.metadata = {
+        ...(payment.metadata || {}),
+        refundWebhookPayload: payload,
+      };
+      await payment.save();
+
+      if (payment.paymentType === "id_card") {
+        const idPurchaseUpdate = {
+          ...(isRefundSuccess ? { status: "refunded" } : {}),
+        };
+        await idPurchaseModel.findOneAndUpdate(
+          { payment: payment._id },
+          { $set: idPurchaseUpdate }
+        );
+
+        if (isRefundSuccess) {
+          await userModel.findByIdAndUpdate(payment.user, {
+            $set: {
+              "idCard.paid": false,
+              "idCard.paidAt": null,
+              "idCard.issued": false,
+              "idCard.issuedAt": null,
+              "idCard.expiresAt": null,
+            },
+          });
+        }
+      }
+
+      return res.sendStatus(200);
+    }
+
+    // CHARGE WEBHOOK FLOW
+    if (!chargeReference) return res.sendStatus(200);
+
+    const payment = await paymentModel.findOne({ reference: chargeReference });
     if (!payment) return res.sendStatus(200);
 
     const status = (data.status || "").toLowerCase();

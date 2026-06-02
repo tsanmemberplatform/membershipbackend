@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr, getIdCardStats, getPublicIdCard } = require('../controllers/idCardController');
+const { requestIdCard, getMyIdStatus, resetIdCardRequest, updateIdStatus, getAllIdRequestsAdmin, getSinglePaidIdRequestAdmin, approveAndGenerateIdRequestAdmin, declineIdRequestAdmin, verifyQr, getIdCardStats, getUsersByNameOrUserIdAdmin, getPublicIdCard } = require('../controllers/idCardController');
 const {auth, authorizeRoles } = require('../middleware/authMiddleware');
 
 /**
@@ -351,6 +351,13 @@ router.get(
   auth,
   authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
   getIdCardStats
+);
+
+router.get(
+  "/admin/users/search",
+  auth,
+  authorizeRoles("distAdmin", "ssAdmin", "nsAdmin", "superAdmin"),
+  getUsersByNameOrUserIdAdmin
 );
 
 /**

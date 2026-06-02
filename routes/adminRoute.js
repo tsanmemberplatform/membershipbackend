@@ -1066,7 +1066,7 @@ router.post("/invite/resend", auth, authorizeRoles("superAdmin", "nsAdmin"), res
  * @swagger
  * /admin/invite:
  *   post:
- *     summary: Invite a new admin user (SuperAdmin or NSAdmin only)
+ *     summary: Invite a new admin user (SuperAdmin,  NSAdmin & ssAdmin only)
  *     description: Sends an onboarding email with a unique invitation link to the provided email address.
  *     tags: [Admin]
  *     security:
@@ -1091,7 +1091,7 @@ router.post("/invite/resend", auth, authorizeRoles("superAdmin", "nsAdmin"), res
  *                 example: johndoe@example.com
  *               role:
  *                 type: string
- *                 enum: [ssAdmin, nsAdmin, superAdmin]
+ *                 enum: [distAdmin, ssAdmin, nsAdmin, superAdmin]
  *                 example: ssAdmin
  *               council:
  *                 type: string
@@ -1132,11 +1132,11 @@ router.post("/invite/resend", auth, authorizeRoles("superAdmin", "nsAdmin"), res
  *       400:
  *         description: Invalid request (user exists, invalid role, or active pending invite).
  *       403:
- *         description: Forbidden — only SuperAdmin or NSAdmin can invite users.
+ *         description: Forbidden — only SuperAdmin, NSAdmin or SSAdmin can invite users.
  *       500:
  *         description: Internal server error.
  */
-router.post("/invite", auth, authorizeRoles("superAdmin", "nsAdmin"), inviteUser);
+router.post("/invite", auth, authorizeRoles("superAdmin", "nsAdmin", "ssAdmin"), inviteUser);
 
 /**
  * @swagger
@@ -1824,7 +1824,7 @@ router.get("/checkSearch", auth, searchEventsByTitle);
  *       500:
  *         description: Internal server error
  */
-router.get("/status/count", auth, countUserStatus);
+router.get("/status/count", auth, authorizeRoles("superAdmin", "nsAdmin", "distAdmin", "ssAdmin"), countUserStatus);
 
 
 /**

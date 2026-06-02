@@ -1392,35 +1392,78 @@ exports.exportReportStatistics = async (req, res) => {
 
 exports.inviteUser = async (req, res) => {
   try {
-    const { fullName, email, role, council } = req.body;
+    const { fullName, email, role, council, district } = req.body;
 
-    if (!["superAdmin", "nsAdmin"].includes(req.user.role)) {
+    const inviteRules = {
+      superAdmin: ["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"],
+      nsAdmin: ["ssAdmin", "distAdmin"],
+      ssAdmin: ["distAdmin"],
+    };
+
+    if (!inviteRules[req.user.role]?.includes(role)) {
       return res.status(403).json({
         status: false,
-        message:
-          "Access denied — only Super Admin or NS Admin can invite users.",
+        message: ` You are not allowed to invite ${role}`,
       });
     }
 
-    if (!["ssAdmin", "nsAdmin", "superAdmin"].includes(role)) {
+    if (!["superAdmin", "nsAdmin", "ssAdmin"].includes(req.user.role)) {
+      return res.status(403).json({
+        status: false,
+        message:
+          "Access denied — only Super Admin, State Scout Admin, or NS Admin can invite users.",
+      });
+    }
+
+    if (!["ssAdmin", "nsAdmin", "superAdmin", "distAdmin"].includes(role)) {
       return res.status(400).json({
         status: false,
         message: "Invalid role. Must be ssAdmin, nsAdmin, or superAdmin.",
       });
     }
-    const assignedCouncil =
-      council && council.trim() !== "" ? council : "FCT Scout Council";
+    // Validation by role
+    if (role === "distAdmin") {
+      if (!district || !council) {
+        return res.status(400).json({
+          status: false,
+          message: "distAdmin must have both district and council.",
+        });
+      }
+    }
+    if (
+      req.user.role === "ssAdmin" &&
+      role === "distAdmin" &&
+      council !== req.user.stateScoutCouncil
+    ) {
+      return res.status(403).json({
+        status: false,
+        message:
+          "ssAdmin can only invite district admins within their stateScoutCouncil.",
+      });
+    }
+
+    if (role === "ssAdmin") {
+      if (!council) {
+        return res.status(400).json({
+          status: false,
+          message: "ssAdmin must have a council.",
+        });
+      }
+    }
     const existingUser = await userModel.findOne({ email });
     if (existingUser) {
-      return res.status(404).json({
+      return res.status(400).json({
         status: false,
         message: "User already exists on TSAN Platform.",
       });
     }
 
     const existingInvite = await invitationModel.findOne({
-      email: req.body.email,
+      email: email.toLowerCase(),
+      status: { $in: ["pending", "resent"] },
     });
+    // Build invite link dynamically
+    let inviteLink = "";
 
     if (existingInvite && existingInvite.expiresAt > new Date()) {
       return res.status(400).json({
@@ -1430,6 +1473,7 @@ exports.inviteUser = async (req, res) => {
     }
     // ✅ Convert role to human-readable format
     const roleDisplayMap = {
+      distAdmin: "District Scout Admin",
       ssAdmin: "State Scout Admin",
       nsAdmin: "National Scout Admin",
       superAdmin: "Super Admin",
@@ -1438,13 +1482,48 @@ exports.inviteUser = async (req, res) => {
 
     // Split fullName into first and last
     const [first = "", last = ""] = fullName.trim().split(" ");
-    const inviteLink = `${process.env.FRONTEND_ONBOARDING_URL}/${first}/${last}/${role}/${council}/${email}`;
 
+    // Encode values safely
+    const encodedFirst = encodeURIComponent(first);
+    const encodedLast = encodeURIComponent(last);
+    const encodedEmail = encodeURIComponent(email);
+    const encodedCouncil = encodeURIComponent(council || "");
+    const encodedDistrict = encodeURIComponent(district || "");
+
+    if (role === "distAdmin") {
+      // distAdmin requires council + district
+      inviteLink =
+        `${process.env.FRONTEND_ONBOARDING_URL}` +
+        `/${encodedFirst}` +
+        `/${encodedLast}` +
+        `/${role}` +
+        `/${encodedCouncil}` +
+        `/${encodedDistrict}` +
+        `/${encodedEmail}`;
+    } else if (role === "ssAdmin") {
+      // ssAdmin should NOT include district
+      inviteLink =
+        `${process.env.FRONTEND_ONBOARDING_URL}` +
+        `/${encodedFirst}` +
+        `/${encodedLast}` +
+        `/${role}` +
+        `/${encodedCouncil}` +
+        `/${encodedEmail}`;
+    } else {
+      // nsAdmin & superAdmin
+      inviteLink =
+        `${process.env.FRONTEND_ONBOARDING_URL}` +
+        `/${encodedFirst}` +
+        `/${encodedLast}` +
+        `/${role}` +
+        `/${encodedEmail}`;
+    }
     const invite = new invitationModel({
       fullName,
       email,
       role,
-      council: assignedCouncil,
+      council: council || null,
+      district: role === "distAdmin" ? district : null,
       invitedBy: req.user._id,
       inviteLink,
     });
@@ -1459,6 +1538,7 @@ exports.inviteUser = async (req, res) => {
         displayRole,
         invite.council,
         inviteLink,
+        invite.district,
       ),
     });
 
@@ -1467,7 +1547,7 @@ exports.inviteUser = async (req, res) => {
       userId: req.user._id,
       field: `${req.user.fullName} invited ${fullName} as ${displayRole}`,
       oldValue: null,
-      newValue: JSON.stringify({ fullName, email, role, council }),
+      newValue: JSON.stringify({ fullName, email, role, council, district }),
       changedBy: req.user.fullName,
       timestamp: new Date(),
       remarks: `${req.user.role} invited ${fullName} (${email}) as ${displayRole}`,
@@ -1480,7 +1560,8 @@ exports.inviteUser = async (req, res) => {
         fullName,
         email,
         role: displayRole,
-        council: assignedCouncil,
+        council: council || null,
+        district: role === "distAdmin" ? district : null,
         expiresAt: invite.expiresAt,
       },
     });
@@ -1509,28 +1590,67 @@ exports.resendInvitation = async (req, res) => {
         .json({ success: false, message: "User already onboarded." });
     }
 
-    // Generate new token & expiration
-    const newToken = crypto.randomBytes(20).toString("hex");
-    invitation.token = newToken;
-    invitation.expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+    const roleDisplayMap = {
+      distAdmin: "District Scout Admin",
+      ssAdmin: "State Scout Admin",
+      nsAdmin: "National Scout Admin",
+      superAdmin: "Super Admin",
+    };
+
+    const [first = "", last = ""] = invitation.fullName.trim().split(" ");
+
+    const encodedFirst = encodeURIComponent(first);
+    const encodedLast = encodeURIComponent(last);
+    const encodedEmail = encodeURIComponent(invitation.email);
+    const encodedCouncil = encodeURIComponent(invitation.council || "");
+    const encodedDistrict = encodeURIComponent(invitation.district || "");
+
+    let inviteLink = "";
+
+    if (invitation.role === "distAdmin") {
+      inviteLink =
+        `${process.env.FRONTEND_ONBOARDING_URL}` +
+        `/${encodedFirst}` +
+        `/${encodedLast}` +
+        `/${invitation.role}` +
+        `/${encodedCouncil}` +
+        `/${encodedDistrict}` +
+        `/${encodedEmail}`;
+    } else if (invitation.role === "ssAdmin") {
+      inviteLink =
+        `${process.env.FRONTEND_ONBOARDING_URL}` +
+        `/${encodedFirst}` +
+        `/${encodedLast}` +
+        `/${invitation.role}` +
+        `/${encodedCouncil}` +
+        `/${encodedEmail}`;
+    } else {
+      inviteLink =
+        `${process.env.FRONTEND_ONBOARDING_URL}` +
+        `/${encodedFirst}` +
+        `/${encodedLast}` +
+        `/${invitation.role}` +
+        `/${encodedEmail}`;
+    }
+
+    invitation.inviteLink = inviteLink;
+    invitation.lastSentAt = new Date();
+    invitation.resentAt = new Date();
+    invitation.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     invitation.status = "resent";
     await invitation.save();
 
-    const inviteLink = `${process.env.FRONTEND_URL}/onboarding?inviteToken=${newToken}`;
-
-    // ✅ Send mail with the proper HTML template
     await sendMail({
       email,
       subject: "TSAN Invitation Resent",
       text: "Complete Your Onboarding",
-      html: inviteUserMail(invitation.fullName, invitation.role, inviteLink),
-    });
-
-    await sendMail({
-      email,
-      subject: "TSAN Welcome Email",
-      text: `Your OTP`,
-      html: welcomeMail(emailOtp, newUser.fullName),
+      html: inviteUserMail(
+        invitation.fullName,
+        roleDisplayMap[invitation.role] || invitation.role,
+        invitation.council,
+        inviteLink,
+        invitation.district,
+      ),
     });
 
     res
@@ -1942,7 +2062,9 @@ exports.adminEditUser = async (req, res) => {
       section,
     } = req.body;
 
-    if (!["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)) {
+    if (
+      !["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)
+    ) {
       return res.status(403).json({
         status: false,
         message: "Access denied. Only admins can edit user details.",
@@ -2128,33 +2250,108 @@ exports.searchEventsByTitle = async (req, res) => {
 
 exports.countUserStatus = async (req, res) => {
   try {
-    //  Restrict access
-    if (
-      !["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(req.user.role)
-    ) {
+    const role = req.user.role;
+
+    if (!["superAdmin", "nsAdmin", "ssAdmin", "distAdmin"].includes(role)) {
       return res.status(403).json({
         status: false,
         message: "Access denied. Only admins can view user statistics.",
       });
     }
 
-    // 📊 Count users by status
+    // RBAC scope filter
+    const scopeFilter = {};
+
+    if (role === "ssAdmin") {
+      if (!req.user.stateScoutCouncil) {
+        return res.status(400).json({
+          status: false,
+          message: "ssAdmin has no stateScoutCouncil assigned",
+        });
+      }
+      scopeFilter.stateScoutCouncil = req.user.stateScoutCouncil;
+    }
+
+    if (role === "distAdmin") {
+      if (!req.user.scoutDistrict) {
+        return res.status(400).json({
+          status: false,
+          message: "distAdmin has no scoutDistrict assigned",
+        });
+      }
+      scopeFilter.scoutDistrict = req.user.scoutDistrict;
+    }
+
+    // superAdmin + nsAdmin => no scope filter (all users)
+
     const [activeCount, inactiveCount, suspendedCount, totalCount] =
       await Promise.all([
-        userModel.countDocuments({ status: "active" }),
-        userModel.countDocuments({ status: "inactive" }),
-        userModel.countDocuments({ status: "suspended" }),
-        userModel.countDocuments(),
+        userModel.countDocuments({ ...scopeFilter, status: "active" }),
+        userModel.countDocuments({ ...scopeFilter, status: "inactive" }),
+        userModel.countDocuments({ ...scopeFilter, status: "suspended" }),
+        userModel.countDocuments(scopeFilter),
       ]);
+
+    // Role counts within the same scope
+    const [
+      memberCount,
+      leaderCount,
+      distAdminCount,
+      ssAdminCount,
+      nsAdminCount,
+      superAdminCount,
+    ] = await Promise.all([
+      userModel.countDocuments({ ...scopeFilter, role: "member" }),
+      userModel.countDocuments({ ...scopeFilter, role: "leader" }),
+      userModel.countDocuments({ ...scopeFilter, role: "distAdmin" }),
+      userModel.countDocuments({ ...scopeFilter, role: "ssAdmin" }),
+      userModel.countDocuments({ ...scopeFilter, role: "nsAdmin" }),
+      userModel.countDocuments({ ...scopeFilter, role: "superAdmin" }),
+    ]);
 
     return res.status(200).json({
       status: true,
       message: "User statistics retrieved successfully.",
       data: {
-        active: activeCount,
-        inactive: inactiveCount,
-        suspended: suspendedCount,
-        total: totalCount,
+        scope:
+          role === "ssAdmin"
+            ? { stateScoutCouncil: req.user.stateScoutCouncil }
+            : role === "distAdmin"
+              ? { scoutDistrict: req.user.scoutDistrict }
+              : "all",
+
+        statusCounts: {
+          active: activeCount,
+          inactive: inactiveCount,
+          suspended: suspendedCount,
+          total: totalCount,
+        },
+
+        roleCounts:
+          role === "distAdmin"
+            ? {
+                totalScouts: memberCount + leaderCount,
+                member: memberCount,
+                leader: leaderCount,
+                distAdmin: distAdminCount,
+              }
+            : role === "ssAdmin"
+              ? {
+                  totalScouts: memberCount + leaderCount,
+                  member: memberCount,
+                  leader: leaderCount,
+                  distAdmin: distAdminCount,
+                  ssAdmin: ssAdminCount,
+                }
+              : {
+                  totalScouts: memberCount + leaderCount,
+                  member: memberCount,
+                  leader: leaderCount,
+                  distAdmin: distAdminCount,
+                  ssAdmin: ssAdminCount,
+                  nsAdmin: nsAdminCount,
+                  superAdmin: superAdminCount,
+                },
       },
     });
   } catch (error) {
