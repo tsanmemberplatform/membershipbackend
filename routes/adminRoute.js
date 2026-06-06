@@ -1097,6 +1097,10 @@ router.post("/invite/resend", auth, authorizeRoles("superAdmin", "nsAdmin"), res
  *                 type: string
  *                 description: Optional. Defaults to "FCT" if not provided.
  *                 example: Lagos State Scout Council
+ *               district:
+ *                 type: string
+ *                 description: Optional. Defaults to "admin district" if not provided.
+ *                 example: Ajeromi Ifelodun
  *     responses:
  *       201:
  *         description: Invitation sent successfully.
