@@ -1066,7 +1066,7 @@ router.post("/invite/resend", auth, authorizeRoles("superAdmin", "nsAdmin"), res
  * @swagger
  * /admin/invite:
  *   post:
- *     summary: Invite a new admin user (SuperAdmin,  NSAdmin & ssAdmin only)
+ *     summary: Invite a new admin user (SuperAdmin,  NSAdmin, ssAdmin distAdmin only)
  *     description: Sends an onboarding email with a unique invitation link to the provided email address.
  *     tags: [Admin]
  *     security:
@@ -1126,6 +1126,9 @@ router.post("/invite/resend", auth, authorizeRoles("superAdmin", "nsAdmin"), res
  *                     council:
  *                       type: string
  *                       example: Lagos State Scout Council
+ *                     district:
+ *                       type: string
+ *                       example: Ajeromi Ifelodun
  *                     expiresAt:
  *                       type: string
  *                       example: 2025-10-20T12:34:56.789Z
