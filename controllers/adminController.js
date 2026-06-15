@@ -1677,6 +1677,14 @@ exports.getUserWithAllDetails = async (req, res) => {
       );
     if (!user)
       return res.status(404).json({ status: false, message: "User not found" });
+    const roleLabels = {
+      ssAdmin: "State Admin",
+      nsAdmin: "National Admin",
+      superAdmin: "National Admin",
+      distAdmin: "District Admin",
+      leader: "Leader",
+      member: "Member",
+    };
 
     // Role-based access check
     // if (
@@ -1732,11 +1740,16 @@ exports.getUserWithAllDetails = async (req, res) => {
       ActivityLog.find({ scout: id }),
     ]);
 
+    const formattedUser = {
+      ...user.toObject(),
+      role: roleLabels[user.role] || user.role,
+    };
+
     res.status(200).json({
       status: true,
       message: "User details fetched successfully",
       data: {
-        user,
+        user: formattedUser,
         awards,
         trainings,
         events,
